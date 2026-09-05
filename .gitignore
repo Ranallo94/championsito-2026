@@ -1,0 +1,18 @@
+# Credenziali Firebase Admin (non pushare mai)
+service-account.json
+serviceAccount*.json
+*-service-account.json
+sa.json
+
+# Script admin locali (non vanno in produzione)
+set-owner.js
+
+# Node
+node_modules/
+functions/node_modules/
+
+# Misc
+.DS_Store
+*.log
+firebase-debug.log
+firebase-debug.*.log
