@@ -305,21 +305,27 @@ textarea.field-input { resize: vertical; }
 /* ── PRONOSTICI: classifica prevista ───────────────── */
 .cf-riga {
   display: grid;
-  grid-template-columns: 32px 1fr auto auto;
+  grid-template-columns: 32px 1fr 32px 40px 36px auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
   margin-bottom: 4px;
   border-left: 4px solid transparent;
 }
+.cf-riga--header { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
 .cf-riga--top8 { border-left-color: var(--magenta); background: rgba(255, 81, 162, 0.06); }
 .cf-riga--playoff { border-left-color: var(--blu); background: rgba(2, 50, 255, 0.05); }
 .cf-riga--eliminate { border-left-color: var(--grigio); background: rgba(178, 190, 190, 0.04); }
 .cf-pos { font-weight: 800; text-align: center; }
 .cf-nome { font-weight: 600; font-size: 13px; }
-.cf-zona { font-size: 11px; color: var(--text-faint); }
-.cf-arrows { display: flex; gap: 4px; }
+.cf-stat { font-size: 12px; text-align: center; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.cf-stat--punti { font-weight: 800; color: var(--text); }
+.cf-zona { font-size: 11px; color: var(--text-faint); text-align: right; }
+@media (max-width: 480px) {
+  .cf-riga { grid-template-columns: 26px 1fr 28px 36px 32px; }
+  .cf-zona { display: none; }
+}
 
 /* ── ADMIN ─────────────────────────────────────────── */
 .reg-section-title { font-size: 15px; font-weight: 800; margin: 0 0 10px; }
