@@ -98,6 +98,9 @@ function _render() {
   }
 
   const giornate = _risultati.giornate || [];
+  // Bonus di fase: si chiudono insieme alla giornata 1 (la fase è iniziata).
+  const bonusChiusi = _giornataChiusa(giornate.find((g) => g.numero === 1));
+  const bonusDisabled = bonusChiusi ? 'disabled' : '';
 
   page.innerHTML = `
     <div class="page-header">
@@ -130,22 +133,29 @@ function _render() {
     </div>
 
     <div id="tab-pron-bonus" class="tab-content">
+      ${bonusChiusi ? `
+      <div class="info-banner info-banner--yellow">
+        <span>🔒</span><span>I bonus di fase si sono chiusi con la giornata 1: puoi consultarli ma non modificarli.</span>
+      </div>` : `
+      <div class="info-banner info-banner--blue">
+        <span>📌</span><span>I bonus si possono modificare fino alla chiusura della giornata 1.</span>
+      </div>`}
       <div class="field-group">
         <label class="field-label">Capocannoniere della fase a gironi</label>
-        <input id="bonus-capocannoniere" type="text" class="field-input" placeholder="Nome giocatore" value="${_esc(_pron.bonus.capocannoniere)}">
+        <input id="bonus-capocannoniere" type="text" class="field-input" placeholder="Nome giocatore" value="${_esc(_pron.bonus.capocannoniere)}" ${bonusDisabled}>
       </div>
       <div class="field-group">
         <label class="field-label">Miglior assistman della fase a gironi</label>
-        <input id="bonus-assistman" type="text" class="field-input" placeholder="Nome giocatore" value="${_esc(_pron.bonus.assistman)}">
+        <input id="bonus-assistman" type="text" class="field-input" placeholder="Nome giocatore" value="${_esc(_pron.bonus.assistman)}" ${bonusDisabled}>
       </div>
       <div class="field-group">
         <label class="field-label">Squadra con più cartellini (ammonizioni)</label>
-        <select id="bonus-cartellini" class="field-input">
+        <select id="bonus-cartellini" class="field-input" ${bonusDisabled}>
           <option value="">— scegli una squadra —</option>
           ${(_risultati.squadre || []).map((s) => `<option value="${s.id}" ${_pron.bonus.cartellini === s.id ? 'selected' : ''}>${_esc(s.nome)}</option>`).join('')}
         </select>
       </div>
-      <button class="btn btn-primary" id="btn-salva-bonus" style="margin-top:16px">Salva bonus</button>
+      <button class="btn btn-primary" id="btn-salva-bonus" style="margin-top:16px" ${bonusDisabled}>Salva bonus</button>
     </div>
   `;
 
