@@ -4,7 +4,9 @@
  * prevista (ordinamento delle 36 squadre), bonus una tantum.
  */
 
-import { getRisultati, getPronostici, savePronostici, onSistemaSnapshot } from './db.js';
+import {
+  getPronostici, savePronostici, onSistemaSnapshot, onRisultatiSnapshot,
+} from './db.js';
 import { getCurrentUser } from './auth.js';
 import { showToast, showEmpty } from './ui.js';
 
@@ -13,6 +15,7 @@ let _pron = null;
 let _nomiSquadra = {};
 let _aperti = true;
 let _giornataAttiva = 1;
+let _unsubRisultati = null;
 
 export async function initPronostici() {
   onSistemaSnapshot((cfg) => {
@@ -20,29 +23,33 @@ export async function initPronostici() {
     _aggiornaBannerChiusura();
   });
 
-  await _carica();
-  _render();
+  const utente = getCurrentUser();
+  if (!utente) return;
+  _pron = await getPronostici(utente.id);
+  if (!_pron) _pron = { segni: {}, risultatiEsatti: {}, classificaFinale: [], bonus: {} };
+  if (!_pron.risultatiEsatti) _pron.risultatiEsatti = {};
+
+  // Ascolto live su risultati/ufficiali: senza questo, un cambiamento fatto
+  // dall'admin (nuovo calendario, apertura/chiusura di una giornata, un
+  // risultato inserito) non si vedeva finché non si ricaricava la pagina —
+  // navigare fra le tab non richiama initPronostici() una seconda volta
+  // (vedi app.js, mostraApp: gira solo una volta per sessione), quindi senza
+  // uno snapshot live i dati restavano quelli del primo caricamento.
+  _unsubRisultati = onRisultatiSnapshot((dati) => {
+    _risultati = dati || {};
+    _nomiSquadra = {};
+    (_risultati.squadre || []).forEach((s) => { _nomiSquadra[s.id] = s.nome; });
+    if (!_pron.classificaFinale || !_pron.classificaFinale.length) {
+      _pron.classificaFinale = (_risultati.squadre || []).map((s) => s.id);
+    }
+    _render();
+  });
 }
 
 export function cleanupPronostici() {
+  if (_unsubRisultati) { _unsubRisultati(); _unsubRisultati = null; }
   _risultati = null;
   _pron = null;
-}
-
-async function _carica() {
-  const utente = getCurrentUser();
-  if (!utente) return;
-  [_risultati, _pron] = await Promise.all([
-    getRisultati(),
-    getPronostici(utente.id),
-  ]);
-  _nomiSquadra = {};
-  (_risultati.squadre || []).forEach((s) => { _nomiSquadra[s.id] = s.nome; });
-  if (!_pron) _pron = { segni: {}, risultatiEsatti: {}, classificaFinale: [], bonus: {} };
-  if (!_pron.risultatiEsatti) _pron.risultatiEsatti = {};
-  if (!_pron.classificaFinale || !_pron.classificaFinale.length) {
-    _pron.classificaFinale = (_risultati.squadre || []).map((s) => s.id);
-  }
 }
 
 // Una giornata è chiusa ai pronostici solo se esplicitamente marcata tale
