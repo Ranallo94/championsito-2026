@@ -85,7 +85,6 @@ async function _render() {
 
     <div id="tab-admin-risultati" class="tab-content ${_tabAttiva === 'tab-admin-risultati' ? 'active' : ''}">
       <div class="giornata-selector" id="admin-giornata-selector"></div>
-      <div id="admin-toggle-pronostici-giornata" style="margin-bottom:16px"></div>
       <div id="admin-partite-risultati"></div>
 
       <h3 class="reg-section-title" style="margin-top:24px">Bonus reali di fase</h3>
@@ -121,11 +120,27 @@ async function _render() {
 
     <div id="tab-admin-config" class="tab-content ${_tabAttiva === 'tab-admin-config' ? 'active' : ''}">
       <div class="field-group">
-        <label class="field-label">Pronostici</label>
+        <label class="field-label">Pronostici (interruttore generale)</label>
         <label class="switch-row">
           <input type="checkbox" id="admin-toggle-aperti" ${sistema.pronostici_aperti !== false ? 'checked' : ''}>
           <span>Pronostici aperti (gli utenti possono compilare/modificare la scheda)</span>
         </label>
+        <p class="field-hint">Spento, blocca tutto: segni, classifica, bonus, tutte le giornate.</p>
+      </div>
+
+      <h3 class="reg-section-title" style="margin-top:24px">Pronostici per giornata</h3>
+      <p class="field-hint" style="margin-bottom:10px">Chiudi una giornata quando iniziano le sue partite: gli utenti non potranno più modificare segni e risultati di quella giornata, le altre restano aperte.</p>
+      <div id="admin-giornate-apertura">
+        ${(_risultati.giornate || []).length ? (_risultati.giornate || []).map((g) => {
+          const chiusa = g.aperta === false;
+          return `
+            <div class="admin-riga" data-giornata="${g.numero}">
+              <span class="admin-riga-nome">${chiusa ? '🔒' : '🔓'} <strong>G${g.numero}</strong>${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''} — ${chiusa ? 'chiusa' : 'aperta'}</span>
+              <span class="admin-riga-azioni">
+                <button class="btn btn-sm ${chiusa ? 'btn-primary' : 'btn-secondary'} btn-toggle-giornata">${chiusa ? 'Riapri' : 'Chiudi'}</button>
+              </span>
+            </div>`;
+        }).join('') : '<p class="field-hint">Nessun calendario caricato — caricalo dal tab "Squadre &amp; calendario".</p>'}
       </div>
     </div>
   `;
@@ -303,29 +318,6 @@ function _renderPartiteRisultati(page, giornate) {
   const giornata = giornate.find((g) => g.numero === _giornataAttiva);
   if (!giornata) { el.innerHTML = '<p class="field-hint">Nessun calendario — generalo dal tab "Squadre &amp; calendario".</p>'; return; }
 
-  const chiusa = giornata.aperta === false;
-  const togglePronosticiEl = page.querySelector('#admin-toggle-pronostici-giornata');
-  if (togglePronosticiEl) {
-    togglePronosticiEl.innerHTML = `
-      <div class="info-banner ${chiusa ? 'info-banner--yellow' : 'info-banner--green'}">
-        <span>${chiusa ? '🔒' : '🔓'}</span>
-        <span>Pronostici G${giornata.numero}${giornata.dataLabel ? ` (${_esc(giornata.dataLabel)})` : ''}: ${chiusa ? 'chiusi' : 'aperti'} per gli utenti.</span>
-      </div>
-      <button class="btn ${chiusa ? 'btn-primary' : 'btn-secondary'}" id="btn-toggle-pronostici-giornata">
-        ${chiusa ? `Riapri pronostici G${giornata.numero}` : `Chiudi pronostici G${giornata.numero}`}
-      </button>
-    `;
-    togglePronosticiEl.querySelector('#btn-toggle-pronostici-giornata')?.addEventListener('click', async () => {
-      const nuoveGiornate = (_risultati.giornate || []).map((g) => (
-        g.numero === giornata.numero ? { ...g, aperta: chiusa ? true : false } : g
-      ));
-      await patchRisultati({ giornate: nuoveGiornate });
-      _risultati.giornate = nuoveGiornate;
-      showToast(chiusa ? `Pronostici G${giornata.numero} riaperti` : `Pronostici G${giornata.numero} chiusi`, 'success');
-      await _render();
-    });
-  }
-
   const nomiSquadra = {};
   (_risultati.squadre || []).forEach((s) => { nomiSquadra[s.id] = s.nome; });
 
@@ -363,6 +355,26 @@ function _bindEventiConfig(page, sistema) {
   page.querySelector('#admin-toggle-aperti')?.addEventListener('change', async (e) => {
     await updateSistema({ pronostici_aperti: e.target.checked });
     showToast(e.target.checked ? 'Pronostici aperti' : 'Pronostici chiusi', 'success');
+  });
+
+  page.querySelectorAll('#admin-giornate-apertura .admin-riga').forEach((riga) => {
+    const numero = Number(riga.dataset.giornata);
+    riga.querySelector('.btn-toggle-giornata')?.addEventListener('click', async () => {
+      const giornata = (_risultati.giornate || []).find((g) => g.numero === numero);
+      if (!giornata) return;
+      const chiusa = giornata.aperta === false;
+      const nuoveGiornate = (_risultati.giornate || []).map((g) => (
+        g.numero === numero ? { ...g, aperta: chiusa } : g
+      ));
+      try {
+        await patchRisultati({ giornate: nuoveGiornate });
+        _risultati.giornate = nuoveGiornate;
+        showToast(chiusa ? `Pronostici G${numero} riaperti` : `Pronostici G${numero} chiusi`, 'success');
+        await _render();
+      } catch (e) {
+        showToast('Errore: ' + e.message, 'error');
+      }
+    });
   });
 }
 
