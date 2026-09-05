@@ -120,7 +120,7 @@ function _renderGiornataSelector(giornate) {
   const el = document.getElementById('giornata-selector');
   if (!el) return;
   el.innerHTML = giornate.map((g) => `
-    <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}">G${g.numero}</button>
+    <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}" title="${_esc(g.dataLabel || '')}">G${g.numero}${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''}</button>
   `).join('');
   el.querySelectorAll('.giornata-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

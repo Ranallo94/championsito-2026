@@ -12,6 +12,7 @@ import {
   getSistema, updateSistema,
 } from './db.js';
 import { generaGiornate } from './calendario.js';
+import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
 import { showToast, openModal, closeModal } from './ui.js';
 
 let _risultati = null;
@@ -51,19 +52,26 @@ async function _render() {
     </div>
 
     <div id="tab-admin-squadre" class="tab-content">
+      <div class="info-banner info-banner--green">
+        <span>🏆</span>
+        <span>Carica in un colpo solo le 36 squadre e le 8 giornate ufficiali della fase a campionato Champions League 2026/27 (sorteggio di Monaco, 27 agosto 2026 — squadre, abbinamenti e date reali). Se esiste già un calendario, verrà sovrascritto.</span>
+      </div>
+      <button class="btn btn-primary" id="btn-carica-ufficiale">🏆 Carica calendario ufficiale UCL 2026/27</button>
+      <p class="field-hint" style="margin-top:8px">
+        ${(_risultati.giornate || []).length ? `Calendario presente: ${_risultati.giornate.length} giornate${_risultati.giornate[0]?.dataLabel ? ' (calendario ufficiale)' : ' (calendario generato casualmente)'}.` : 'Nessun calendario caricato.'}
+      </p>
+
+      <h3 class="reg-section-title" style="margin-top:24px">Modalità manuale (torneo di prova / altre competizioni)</h3>
       <div class="info-banner info-banner--blue">
         <span>📌</span>
-        <span>Incolla i nomi delle 36 squadre (una per riga). Salvando si rigenerano gli id — se cambi le squadre dopo aver già generato un calendario, rigenera anche quello.</span>
+        <span>Incolla i nomi delle squadre (una per riga) e genera un calendario casuale (round-robin) — usa questa modalità solo per test, non per la competizione reale.</span>
       </div>
       <div class="field-group">
         <label class="field-label">Squadre (una per riga)</label>
         <textarea id="admin-squadre-textarea" class="field-input" rows="10" placeholder="Squadra 1&#10;Squadra 2&#10;...">${(_risultati.squadre || []).map((s) => s.nome).join('\n')}</textarea>
       </div>
-      <button class="btn btn-primary" id="btn-salva-squadre">Salva squadre</button>
-      <button class="btn btn-secondary" id="btn-genera-calendario" style="margin-left:8px">🗓️ Genera calendario (8 giornate)</button>
-      <p id="admin-squadre-stato" class="field-hint" style="margin-top:8px">
-        ${(_risultati.giornate || []).length ? `Calendario presente: ${_risultati.giornate.length} giornate.` : 'Nessun calendario generato.'}
-      </p>
+      <button class="btn btn-secondary" id="btn-salva-squadre">Salva squadre</button>
+      <button class="btn btn-secondary" id="btn-genera-calendario" style="margin-left:8px">🗓️ Genera calendario casuale (8 giornate)</button>
     </div>
 
     <div id="tab-admin-risultati" class="tab-content">
@@ -188,6 +196,25 @@ function _bindEventiUtenti(page) {
 // ── SQUADRE & CALENDARIO ─────────────────────────────────
 
 function _bindEventiSquadre(page) {
+  page.querySelector('#btn-carica-ufficiale')?.addEventListener('click', () => {
+    const giaPresente = (_risultati.giornate || []).length > 0;
+    const conferma = async () => {
+      closeModal();
+      await setRisultati({ squadre: SQUADRE_UFFICIALI, giornate: GIORNATE_UFFICIALI });
+      showToast('Calendario ufficiale UCL 2026/27 caricato: 36 squadre, 8 giornate.', 'success');
+      await _render();
+    };
+    if (!giaPresente) { conferma(); return; }
+    openModal({
+      title: 'Sovrascrivere il calendario esistente?',
+      body: '<p>C\'è già un calendario salvato (con eventuali risultati inseriti). Caricando quello ufficiale, squadre e giornate verranno sostituite. I pronostici già inviati dagli utenti restano invariati, ma faranno riferimento ai nuovi id squadra/partita solo se coincidono.</p>',
+      buttons: [
+        { label: 'Annulla', cls: 'btn btn-secondary', onClick: closeModal },
+        { label: 'Sovrascrivi', cls: 'btn btn-danger', onClick: conferma },
+      ],
+    });
+  });
+
   page.querySelector('#btn-salva-squadre')?.addEventListener('click', async () => {
     const righe = page.querySelector('#admin-squadre-textarea').value
       .split('\n').map((r) => r.trim()).filter(Boolean);
@@ -222,7 +249,7 @@ function _bindEventiRisultati(page) {
   const selector = page.querySelector('#admin-giornata-selector');
   if (selector) {
     selector.innerHTML = giornate.map((g) => `
-      <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}">G${g.numero}</button>
+      <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}" title="${_esc(g.dataLabel || '')}">G${g.numero}${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''}</button>
     `).join('');
     selector.querySelectorAll('.giornata-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
