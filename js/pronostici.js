@@ -40,8 +40,17 @@ export async function initPronostici() {
     _mostraErrore(`Errore nel caricare il tuo pronostico (${e.code || e.message}).`);
     return;
   }
-  if (!_pron) _pron = { segni: {}, risultatiEsatti: {}, classificaFinale: [], bonus: {} };
+  // Normalizzazione campo per campo: il documento pronostici/{uid} viene
+  // scritto con merge parziali (il tasto "Salva pronostici di questa giornata"
+  // scrive solo segni + risultatiEsatti, quello dei bonus solo bonus, ecc.),
+  // quindi può esistere con alcuni campi mancanti. Prima si difendeva solo
+  // il caso "documento assente del tutto" e _render() crashava su
+  // _pron.bonus.capocannoniere se mancava bonus.
+  if (!_pron) _pron = {};
+  if (!_pron.segni) _pron.segni = {};
   if (!_pron.risultatiEsatti) _pron.risultatiEsatti = {};
+  if (!_pron.bonus) _pron.bonus = {};
+  if (!_pron.classificaFinale) _pron.classificaFinale = [];
 
   // Ascolto live su risultati/ufficiali: senza questo, un cambiamento fatto
   // dall'admin (nuovo calendario, apertura/chiusura di una giornata, un
