@@ -9,6 +9,7 @@ import {
 } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { showToast, showEmpty } from './ui.js';
+import { classificaPrevista, giornatePreviste } from './ranking.js';
 
 let _risultati = null;
 let _pron = null;
@@ -50,7 +51,6 @@ export async function initPronostici() {
   if (!_pron.segni) _pron.segni = {};
   if (!_pron.risultatiEsatti) _pron.risultatiEsatti = {};
   if (!_pron.bonus) _pron.bonus = {};
-  if (!_pron.classificaFinale) _pron.classificaFinale = [];
 
   // Ascolto live su risultati/ufficiali: senza questo, un cambiamento fatto
   // dall'admin (nuovo calendario, apertura/chiusura di una giornata, un
@@ -62,9 +62,6 @@ export async function initPronostici() {
     _risultati = dati || {};
     _nomiSquadra = {};
     (_risultati.squadre || []).forEach((s) => { _nomiSquadra[s.id] = s.nome; });
-    if (!_pron.classificaFinale || !_pron.classificaFinale.length) {
-      _pron.classificaFinale = (_risultati.squadre || []).map((s) => s.id);
-    }
     try {
       _render();
     } catch (e) {
@@ -137,10 +134,10 @@ function _render() {
     <div id="tab-pron-classifica" class="tab-content">
       <div class="info-banner info-banner--blue">
         <span>📌</span>
-        <span>Ordina le 36 squadre da 1ª a 36ª. Le prime 8 vanno agli ottavi diretti, dalla 9ª alla 24ª giocano lo spareggio, dalla 25ª alla 36ª sono eliminate.</span>
+        <span>Classifica calcolata automaticamente dai tuoi pronostici, giornata dopo giornata: si aggiorna man mano che inserisci segni e risultati, fino all'ultima partita della fase a gironi. Le prime 8 vanno agli ottavi diretti, dalla 9ª alla 24ª giocano lo spareggio, dalla 25ª alla 36ª sono eliminate. Se per una partita dai solo il segno senza risultato, si assume 1-0 / 1-1 / 0-1.</span>
       </div>
+      <p id="classifica-prevista-stato" class="field-hint"></p>
       <div id="classifica-prevista-list"></div>
-      <button class="btn btn-primary" id="btn-salva-classifica" style="margin-top:16px">Salva classifica prevista</button>
     </div>
 
     <div id="tab-pron-bonus" class="tab-content">
@@ -169,7 +166,6 @@ function _render() {
   _aggiornaBannerChiusura();
 
   document.getElementById('btn-salva-segni').addEventListener('click', () => _salva(['segni', 'risultatiEsatti']));
-  document.getElementById('btn-salva-classifica').addEventListener('click', () => _salva(['classificaFinale']));
   document.getElementById('btn-salva-bonus').addEventListener('click', () => _salva(['bonus']));
 }
 
@@ -227,6 +223,7 @@ function _renderPartite(giornate) {
         btn.addEventListener('click', () => {
           _pron.segni[matchId] = btn.dataset.segno;
           riga.querySelectorAll('.segno-btn').forEach((b) => b.classList.toggle('active', b === btn));
+          _renderClassificaPrevista();
         });
       });
 
@@ -236,6 +233,7 @@ function _renderPartite(giornate) {
         const gc = inputCasa.value, gt = inputTrasferta.value;
         if (gc === '' || gt === '') {
           delete _pron.risultatiEsatti[matchId];
+          _renderClassificaPrevista();
           return;
         }
         _pron.risultatiEsatti[matchId] = { golCasa: Number(gc), golTrasferta: Number(gt) };
@@ -246,6 +244,7 @@ function _renderPartite(giornate) {
         const segnoDerivato = Number(gc) > Number(gt) ? '1' : (Number(gc) < Number(gt) ? '2' : 'X');
         _pron.segni[matchId] = segnoDerivato;
         riga.querySelectorAll('.segno-btn').forEach((b) => b.classList.toggle('active', b.dataset.segno === segnoDerivato));
+        _renderClassificaPrevista();
       };
       inputCasa.addEventListener('input', aggiornaEsatto);
       inputTrasferta.addEventListener('input', aggiornaEsatto);
@@ -253,42 +252,50 @@ function _renderPartite(giornate) {
   }
 }
 
+// Classifica prevista: DERIVATA dai pronostici (segni + risultati esatti),
+// stessa logica di ranking della classifica reale — nessun ordinamento a
+// mano. Si ricalcola a ogni click/inserimento, non serve salvarla: la Cloud
+// Function la ricava a sua volta da segni + risultatiEsatti (functions/ranking.js).
 function _renderClassificaPrevista() {
   const el = document.getElementById('classifica-prevista-list');
-  if (!el) return;
-  _draw(el);
-}
+  if (!el || !_risultati) return;
 
-function _draw(el) {
-  el.innerHTML = _pron.classificaFinale.map((sqId, i) => {
+  const squadre = _risultati.squadre || [];
+  const giornate = _risultati.giornate || [];
+  const ordine = classificaPrevista(_pron, squadre, giornate);
+
+  const totPartite = giornate.reduce((n, g) => n + (g.partite || []).length, 0);
+  const previste = giornatePreviste(_pron, giornate)
+    .reduce((n, g) => n + g.partite.filter((p) => p.golCasa != null).length, 0);
+  const stato = document.getElementById('classifica-prevista-stato');
+  if (stato) {
+    stato.textContent = previste === 0
+      ? 'Nessuna partita ancora pronosticata: la classifica è a zero punti per tutte.'
+      : `Basata su ${previste} partite pronosticate su ${totPartite}${previste < totPartite ? ' — si completerà con le giornate mancanti.' : '.'}`;
+  }
+
+  el.innerHTML = `
+    <div class="cf-riga cf-riga--header">
+      <span class="cf-pos">#</span>
+      <span class="cf-nome">Squadra</span>
+      <span class="cf-stat" title="Partite pronosticate">G</span>
+      <span class="cf-stat" title="Differenza reti">DR</span>
+      <span class="cf-stat cf-stat--punti" title="Punti">Pt</span>
+      <span class="cf-zona"></span>
+    </div>
+  ` + ordine.map((s, i) => {
     const zona = i < 8 ? 'top8' : (i < 24 ? 'playoff' : 'eliminate');
     const zonaLabel = { top8: 'Ottavi diretti', playoff: 'Spareggio', eliminate: 'Eliminata' }[zona];
     return `
-      <div class="cf-riga cf-riga--${zona}" data-idx="${i}">
+      <div class="cf-riga cf-riga--${zona}">
         <span class="cf-pos">${i + 1}</span>
-        <span class="cf-nome">${_esc(_nomiSquadra[sqId] || sqId)}</span>
+        <span class="cf-nome">${_esc(s.nome)}</span>
+        <span class="cf-stat">${s.giocate}</span>
+        <span class="cf-stat">${s.dr > 0 ? '+' : ''}${s.dr}</span>
+        <span class="cf-stat cf-stat--punti">${s.punti}</span>
         <span class="cf-zona">${zonaLabel}</span>
-        <span class="cf-arrows">
-          <button class="btn-icon cf-up" ${!_aperti || i === 0 ? 'disabled' : ''} title="Sposta su">↑</button>
-          <button class="btn-icon cf-down" ${!_aperti || i === _pron.classificaFinale.length - 1 ? 'disabled' : ''} title="Sposta giù">↓</button>
-        </span>
       </div>`;
   }).join('');
-
-  if (!_aperti) return;
-  el.querySelectorAll('.cf-riga').forEach((riga) => {
-    const i = Number(riga.dataset.idx);
-    const up = riga.querySelector('.cf-up');
-    const down = riga.querySelector('.cf-down');
-    if (up) up.addEventListener('click', () => { _sposta(i, i - 1); _draw(el); });
-    if (down) down.addEventListener('click', () => { _sposta(i, i + 1); _draw(el); });
-  });
-}
-
-function _sposta(da, a) {
-  if (a < 0 || a >= _pron.classificaFinale.length) return;
-  const arr = _pron.classificaFinale;
-  [arr[da], arr[a]] = [arr[a], arr[da]];
 }
 
 async function _salva(sezioni) {
