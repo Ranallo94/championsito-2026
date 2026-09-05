@@ -18,7 +18,31 @@ export const STATE = {
 export async function initApp() {
   STATE.db = window._firebase.db;
 
+  // Rete di sicurezza: qualunque errore non gestito altrove (promise
+  // rejection o eccezione sincrona) finiva prima in una schermata vuota
+  // senza traccia. Ora si vede sempre almeno in console, con dettaglio.
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[app] Promise non gestita:', e.reason);
+  });
+  window.addEventListener('error', (e) => {
+    console.error('[app] Errore non gestito:', e.error || e.message);
+  });
+
   onAuthChange(async (utente) => {
+    if (utente && utente._errore) {
+      // Il profilo esiste in Auth ma la lettura da Firestore è fallita
+      // (quasi sempre: firestore.rules non pubblicate, o config Firebase
+      // sbagliata). Prima di questo fix la schermata restava ferma sul
+      // login senza nessun messaggio — ora è visibile ed è diagnosticabile.
+      mostraLogin();
+      showLoginError(
+        `Errore nel caricare il tuo profilo (${utente._errore}). `
+        + 'Controlla che le Firestore Rules siano pubblicate '
+        + '("firebase deploy --only firestore:rules") e che la config Firebase '
+        + 'in index.html sia quella giusta. Dettagli in console (F12).'
+      );
+      return;
+    }
     if (!utente) {
       cleanupPronostici();
       cleanupClassifica();
@@ -158,12 +182,32 @@ async function mostraApp() {
 
   if (!STATE._appInizializzata) {
     STATE._appInizializzata = true;
-    await initClassifica();
-    await initPronostici();
-    if (STATE.utente.isAdmin) await initAdmin();
+    try {
+      await initClassifica();
+      await initPronostici();
+      if (STATE.utente.isAdmin) await initAdmin();
+    } catch (e) {
+      // Prima un errore qui interrompeva mostraApp() a metà e navigaA()
+      // non veniva mai chiamata: risultato, schermata app vuota (nessuna
+      // pagina con classe "active" oltre a quella statica iniziale, ma
+      // nessun contenuto reale caricato) e nessun indizio del perché.
+      // Ora l'errore è visibile in pagina e in console.
+      console.error('[app] Errore inizializzando le pagine:', e);
+      const banner = document.getElementById('app-error-banner');
+      if (banner) {
+        banner.style.display = '';
+        banner.innerHTML = `<span>⚠️</span><span>Errore nel caricare l'app: ${_esc(e.message || String(e))}. Dettagli in console (F12). Ricarica la pagina o contatta l'admin.</span>`;
+      }
+    }
   }
 
   navigaA('classifica');
+}
+
+function _esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
 }
 
 function _nascondiTutto() {
