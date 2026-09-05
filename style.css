@@ -70,6 +70,7 @@ body {
 }
 
 .login-logo { font-size: 48px; margin-bottom: 8px; }
+.login-logo-img { display: block; width: 120px; height: 120px; margin: 0 auto 12px; border-radius: 50%; }
 .login-title {
   font-size: 26px;
   font-weight: 800;
@@ -165,6 +166,7 @@ textarea.field-input { resize: vertical; }
 .header-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; }
 .header-logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; }
 .header-logo-emoji { font-size: 22px; }
+.header-logo-img { width: 32px; height: 32px; border-radius: 50%; display: block; }
 .header-user { display: flex; align-items: center; gap: 10px; }
 .header-username { font-weight: 600; font-size: 14px; color: var(--text-dim); }
 
@@ -331,7 +333,18 @@ textarea.field-input { resize: vertical; }
 .reg-section-title { font-size: 15px; font-weight: 800; margin: 0 0 10px; }
 .admin-riga { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; }
 .admin-riga-nome { font-size: 13px; }
-.admin-riga-azioni { display: flex; gap: 6px; }
+.admin-riga-azioni { display: flex; gap: 6px; flex-shrink: 0; }
+.admin-utente-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.admin-utente-nome { font-size: 14px; font-weight: 700; }
+.admin-utente-nome small { font-weight: 500; color: var(--text-faint); }
+.admin-utente-dettagli { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.admin-utente-dettagli a { color: var(--text-dim); text-decoration: none; }
+.admin-utente-dettagli a:hover { text-decoration: underline; }
+.btn-whatsapp { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: #25D366; color: #0b141a !important; font-weight: 700; font-size: 12px; }
+.btn-whatsapp:hover { text-decoration: none !important; filter: brightness(1.08); }
+@media (max-width: 480px) {
+  .admin-riga { flex-direction: column; align-items: stretch; gap: 8px; }
+}
 .switch-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 
 /* ── REGOLAMENTO ───────────────────────────────────── */

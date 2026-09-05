@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⭐ Championsito</title>
+  <title>Championsito</title>
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/logo-192.png">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -16,7 +18,7 @@
   <div id="screen-login" class="screen active">
     <div class="login-bg">
       <div class="login-card">
-        <div class="login-logo login-logo--emoji">⭐</div>
+        <img class="login-logo-img" src="img/logo.png" alt="Championsito">
         <h1 class="login-title">Championsito</h1>
         <p class="login-subtitle">Pronostici tra amici · Fase a campionato Champions League</p>
 
@@ -125,7 +127,7 @@
     <header class="app-header">
       <div class="header-inner">
         <div class="header-logo">
-          <span class="header-logo-emoji">⭐</span>
+          <img class="header-logo-img" src="img/logo-192.png" alt="">
           <span class="header-title">Championsito</span>
         </div>
         <div class="header-user">
@@ -199,9 +201,9 @@
         <div class="reg-section">
           <h3 class="reg-section-title">📋 Cosa si pronostica</h3>
           <ol class="reg-list">
-            <li><strong>Segno 1X2</strong> per ogni partita, per ciascuna delle 8 giornate (non il risultato esatto).</li>
-            <li><strong>Classifica finale prevista</strong>: l'ordine di tutte le 36 squadre. Da pronosticare esplicitamente — a differenza del Mondialito, qui non è derivabile dai soli segni (calendario sparso, non un girone completo).</li>
-            <li><strong>Bonus una tantum</strong>, validi per l'intera fase: capocannoniere, miglior assistman, squadra con più cartellini.</li>
+            <li><strong>Segno 1X2 e risultato esatto</strong> per ogni partita, per ciascuna delle 8 giornate. Inserendo il risultato, il segno si compila da solo. Ogni giornata si può modificare finché l'admin non la chiude (all'inizio delle sue partite).</li>
+            <li><strong>Classifica finale prevista</strong>: calcolata <em>automaticamente</em> dai tuoi risultati pronosticati, con le stesse regole della classifica reale (punti, differenza reti, gol fatti). Si aggiorna giornata dopo giornata: le prime 8 vanno agli ottavi, dalla 9ª alla 24ª allo spareggio, dalla 25ª alla 36ª sono eliminate. Se dai solo il segno senza risultato, vale 1-0 / 1-1 / 0-1.</li>
+            <li><strong>Bonus una tantum</strong>, validi per l'intera fase: capocannoniere, miglior assistman, squadra con più cartellini. Modificabili fino alla chiusura della giornata 1.</li>
           </ol>
         </div>
 
@@ -211,16 +213,17 @@
             <thead><tr><th>Voce</th><th>Punti</th></tr></thead>
             <tbody>
               <tr><td>Segno 1X2 corretto (per partita)</td><td>3</td></tr>
-              <tr><td>Capocannoniere / Assistman / Squadra più ammonita indovinati (ciascuno)</td><td>60</td></tr>
-              <tr><td>Squadra pronosticata nella fascia corretta — prime 8</td><td>20</td></tr>
-              <tr><td>Squadra pronosticata nella fascia corretta — playoff (9ª-24ª)</td><td>10</td></tr>
-              <tr><td>Squadra pronosticata nella fascia corretta — eliminate (25ª-36ª)</td><td>6</td></tr>
-              <tr><td>Posizione esatta in classifica — zona prime 8</td><td>70</td></tr>
-              <tr><td>Posizione esatta in classifica — zona playoff</td><td>35</td></tr>
-              <tr><td>Posizione esatta in classifica — zona eliminate</td><td>15</td></tr>
+              <tr><td>Risultato esatto (per partita, in aggiunta al segno → 13 in tutto)</td><td>+10</td></tr>
+              <tr><td>Capocannoniere / Assistman / Squadra più ammonita indovinati (ciascuno)</td><td>30</td></tr>
+              <tr><td>Squadra pronosticata nella fascia corretta — prime 8</td><td>15</td></tr>
+              <tr><td>Squadra pronosticata nella fascia corretta — playoff (9ª-24ª)</td><td>3</td></tr>
+              <tr><td>Squadra pronosticata nella fascia corretta — eliminate (25ª-36ª)</td><td>8</td></tr>
+              <tr><td>Posizione esatta in classifica — zona prime 8 (oltre alla fascia)</td><td>40</td></tr>
+              <tr><td>Posizione esatta in classifica — zona playoff</td><td>12</td></tr>
+              <tr><td>Posizione esatta in classifica — zona eliminate</td><td>12</td></tr>
             </tbody>
           </table>
-          <p class="field-hint">Valori calibrati con simulazione Monte Carlo — vedi <code>CLAUDE.md</code> e <code>simulazione/sim_championsito.py</code> nel repository.</p>
+          <p class="field-hint">Valori calibrati con simulazione Monte Carlo su una popolazione di 20 pronosticatori, con l'obiettivo di tenere la gara aperta fino all'ultima giornata: circa due terzi dei punti si guadagnano giornata per giornata, e chi guida prima dell'ultima giornata vince solo poco più di una volta su due. Vedi <code>simulazione/sim_championsito_v2.py</code>.</p>
         </div>
 
         <div class="reg-section">
