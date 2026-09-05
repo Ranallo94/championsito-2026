@@ -76,6 +76,7 @@ async function _render() {
 
     <div id="tab-admin-risultati" class="tab-content">
       <div class="giornata-selector" id="admin-giornata-selector"></div>
+      <div id="admin-toggle-pronostici-giornata" style="margin-bottom:16px"></div>
       <div id="admin-partite-risultati"></div>
 
       <h3 class="reg-section-title" style="margin-top:24px">Bonus reali di fase</h3>
@@ -249,7 +250,7 @@ function _bindEventiRisultati(page) {
   const selector = page.querySelector('#admin-giornata-selector');
   if (selector) {
     selector.innerHTML = giornate.map((g) => `
-      <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}" title="${_esc(g.dataLabel || '')}">G${g.numero}${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''}</button>
+      <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}" title="${_esc(g.dataLabel || '')}">${g.aperta === false ? '🔒 ' : ''}G${g.numero}${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''}</button>
     `).join('');
     selector.querySelectorAll('.giornata-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -292,6 +293,29 @@ function _renderPartiteRisultati(page, giornate) {
   if (!el) return;
   const giornata = giornate.find((g) => g.numero === _giornataAttiva);
   if (!giornata) { el.innerHTML = '<p class="field-hint">Nessun calendario — generalo dal tab "Squadre &amp; calendario".</p>'; return; }
+
+  const chiusa = giornata.aperta === false;
+  const togglePronosticiEl = page.querySelector('#admin-toggle-pronostici-giornata');
+  if (togglePronosticiEl) {
+    togglePronosticiEl.innerHTML = `
+      <div class="info-banner ${chiusa ? 'info-banner--yellow' : 'info-banner--green'}">
+        <span>${chiusa ? '🔒' : '🔓'}</span>
+        <span>Pronostici G${giornata.numero}${giornata.dataLabel ? ` (${_esc(giornata.dataLabel)})` : ''}: ${chiusa ? 'chiusi' : 'aperti'} per gli utenti.</span>
+      </div>
+      <button class="btn ${chiusa ? 'btn-primary' : 'btn-secondary'}" id="btn-toggle-pronostici-giornata">
+        ${chiusa ? `Riapri pronostici G${giornata.numero}` : `Chiudi pronostici G${giornata.numero}`}
+      </button>
+    `;
+    togglePronosticiEl.querySelector('#btn-toggle-pronostici-giornata')?.addEventListener('click', async () => {
+      const nuoveGiornate = (_risultati.giornate || []).map((g) => (
+        g.numero === giornata.numero ? { ...g, aperta: chiusa ? true : false } : g
+      ));
+      await patchRisultati({ giornate: nuoveGiornate });
+      _risultati.giornate = nuoveGiornate;
+      showToast(chiusa ? `Pronostici G${giornata.numero} riaperti` : `Pronostici G${giornata.numero} chiusi`, 'success');
+      await _render();
+    });
+  }
 
   const nomiSquadra = {};
   (_risultati.squadre || []).forEach((s) => { nomiSquadra[s.id] = s.nome; });

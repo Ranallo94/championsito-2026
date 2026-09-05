@@ -38,10 +38,18 @@ async function _carica() {
   ]);
   _nomiSquadra = {};
   (_risultati.squadre || []).forEach((s) => { _nomiSquadra[s.id] = s.nome; });
-  if (!_pron) _pron = { segni: {}, classificaFinale: [], bonus: {} };
+  if (!_pron) _pron = { segni: {}, risultatiEsatti: {}, classificaFinale: [], bonus: {} };
+  if (!_pron.risultatiEsatti) _pron.risultatiEsatti = {};
   if (!_pron.classificaFinale || !_pron.classificaFinale.length) {
     _pron.classificaFinale = (_risultati.squadre || []).map((s) => s.id);
   }
+}
+
+// Una giornata è chiusa ai pronostici solo se esplicitamente marcata tale
+// dall'admin (giornata.aperta === false). Assenza del campo = aperta, per
+// compatibilità con calendari già generati prima di questa funzionalità.
+function _giornataChiusa(giornata) {
+  return !!giornata && giornata.aperta === false;
 }
 
 function _render() {
@@ -66,15 +74,18 @@ function _render() {
     </div>
 
     <div class="inner-tabs" id="pron-inner-tabs">
-      <button class="tab active" data-tab="tab-pron-segni">Segno per giornata</button>
+      <button class="tab active" data-tab="tab-pron-segni">Segno &amp; risultato esatto</button>
       <button class="tab" data-tab="tab-pron-classifica">Classifica finale</button>
       <button class="tab" data-tab="tab-pron-bonus">Bonus di fase</button>
     </div>
 
     <div id="tab-pron-segni" class="tab-content active">
       <div class="giornata-selector" id="giornata-selector"></div>
+      <div id="pron-banner-giornata-chiusa" class="info-banner info-banner--yellow" style="display:none">
+        <span>🔒</span><span>I pronostici per questa giornata sono chiusi. Puoi consultarli ma non modificarli.</span>
+      </div>
       <div id="giornata-partite"></div>
-      <button class="btn btn-primary" id="btn-salva-segni" style="margin-top:16px">Salva segni</button>
+      <button class="btn btn-primary" id="btn-salva-segni" style="margin-top:16px">Salva pronostici di questa giornata</button>
     </div>
 
     <div id="tab-pron-classifica" class="tab-content">
@@ -111,16 +122,16 @@ function _render() {
   _renderClassificaPrevista();
   _aggiornaBannerChiusura();
 
-  document.getElementById('btn-salva-segni').addEventListener('click', () => _salva('segni'));
-  document.getElementById('btn-salva-classifica').addEventListener('click', () => _salva('classificaFinale'));
-  document.getElementById('btn-salva-bonus').addEventListener('click', () => _salva('bonus'));
+  document.getElementById('btn-salva-segni').addEventListener('click', () => _salva(['segni', 'risultatiEsatti']));
+  document.getElementById('btn-salva-classifica').addEventListener('click', () => _salva(['classificaFinale']));
+  document.getElementById('btn-salva-bonus').addEventListener('click', () => _salva(['bonus']));
 }
 
 function _renderGiornataSelector(giornate) {
   const el = document.getElementById('giornata-selector');
   if (!el) return;
   el.innerHTML = giornate.map((g) => `
-    <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}" title="${_esc(g.dataLabel || '')}">G${g.numero}${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''}</button>
+    <button class="giornata-btn ${g.numero === _giornataAttiva ? 'active' : ''}" data-giornata="${g.numero}" title="${_esc(g.dataLabel || '')}">${_giornataChiusa(g) ? '🔒 ' : ''}G${g.numero}${g.dataLabel ? ` <small>${_esc(g.dataLabel)}</small>` : ''}</button>
   `).join('');
   el.querySelectorAll('.giornata-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -137,9 +148,14 @@ function _renderPartite(giornate) {
   const giornata = giornate.find((g) => g.numero === _giornataAttiva);
   if (!giornata) { el.innerHTML = ''; return; }
 
+  const chiusa = _giornataChiusa(giornata);
+  const bannerGiornata = document.getElementById('pron-banner-giornata-chiusa');
+  if (bannerGiornata) bannerGiornata.style.display = (chiusa && _aperti) ? '' : 'none';
+
   el.innerHTML = giornata.partite.map((p) => {
     const scelta = _pron.segni[p.id] || null;
-    const disabled = !_aperti ? 'disabled' : '';
+    const esatto = _pron.risultatiEsatti[p.id] || {};
+    const disabled = (!_aperti || chiusa) ? 'disabled' : '';
     return `
       <div class="partita-riga" data-match="${p.id}">
         <span class="partita-squadra partita-squadra--casa">${_esc(_nomiSquadra[p.casa] || p.casa)}</span>
@@ -148,19 +164,45 @@ function _renderPartite(giornate) {
             <button class="segno-btn ${scelta === s ? 'active' : ''}" data-segno="${s}" ${disabled}>${s}</button>
           `).join('')}
         </div>
+        <div class="risultato-esatto-scelta">
+          <input type="number" min="0" class="risultato-esatto-input" data-lato="golCasa" value="${esatto.golCasa ?? ''}" placeholder="—" ${disabled}>
+          <span>-</span>
+          <input type="number" min="0" class="risultato-esatto-input" data-lato="golTrasferta" value="${esatto.golTrasferta ?? ''}" placeholder="—" ${disabled}>
+        </div>
         <span class="partita-squadra partita-squadra--trasferta">${_esc(_nomiSquadra[p.trasferta] || p.trasferta)}</span>
       </div>`;
   }).join('');
 
-  if (_aperti) {
+  if (_aperti && !chiusa) {
     el.querySelectorAll('.partita-riga').forEach((riga) => {
       const matchId = riga.dataset.match;
+
       riga.querySelectorAll('.segno-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           _pron.segni[matchId] = btn.dataset.segno;
           riga.querySelectorAll('.segno-btn').forEach((b) => b.classList.toggle('active', b === btn));
         });
       });
+
+      const inputCasa = riga.querySelector('.risultato-esatto-input[data-lato="golCasa"]');
+      const inputTrasferta = riga.querySelector('.risultato-esatto-input[data-lato="golTrasferta"]');
+      const aggiornaEsatto = () => {
+        const gc = inputCasa.value, gt = inputTrasferta.value;
+        if (gc === '' || gt === '') {
+          delete _pron.risultatiEsatti[matchId];
+          return;
+        }
+        _pron.risultatiEsatti[matchId] = { golCasa: Number(gc), golTrasferta: Number(gt) };
+        // Il punteggio esatto implica il segno: lo deriviamo e aggiorniamo il
+        // bottone corrispondente, restando comunque un dato indipendente
+        // (l'utente può ancora cliccare un segno diverso a mano se preferisce
+        // non specificare il risultato esatto per quella partita).
+        const segnoDerivato = Number(gc) > Number(gt) ? '1' : (Number(gc) < Number(gt) ? '2' : 'X');
+        _pron.segni[matchId] = segnoDerivato;
+        riga.querySelectorAll('.segno-btn').forEach((b) => b.classList.toggle('active', b.dataset.segno === segnoDerivato));
+      };
+      inputCasa.addEventListener('input', aggiornaEsatto);
+      inputTrasferta.addEventListener('input', aggiornaEsatto);
     });
   }
 }
@@ -203,11 +245,11 @@ function _sposta(da, a) {
   [arr[da], arr[a]] = [arr[a], arr[da]];
 }
 
-async function _salva(sezione) {
+async function _salva(sezioni) {
   const utente = getCurrentUser();
   if (!utente) return;
 
-  if (sezione === 'bonus') {
+  if (sezioni.includes('bonus')) {
     _pron.bonus = {
       capocannoniere: document.getElementById('bonus-capocannoniere').value.trim(),
       assistman: document.getElementById('bonus-assistman').value.trim(),
@@ -216,7 +258,8 @@ async function _salva(sezione) {
   }
 
   try {
-    const patch = { [sezione]: _pron[sezione] };
+    const patch = {};
+    sezioni.forEach((s) => { patch[s] = _pron[s]; });
     await savePronostici(utente.id, patch);
     showToast('Salvato!', 'success');
   } catch (e) {
