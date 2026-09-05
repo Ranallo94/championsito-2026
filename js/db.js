@@ -43,10 +43,19 @@ export async function getRisultati() {
   return snap.exists() ? snap.data() : {};
 }
 
-export function onRisultatiSnapshot(callback) {
-  return onSnapshot(doc(db(), 'risultati', 'ufficiali'), (snap) => {
-    callback(snap.exists() ? snap.data() : {});
-  });
+export function onRisultatiSnapshot(callback, onError) {
+  return onSnapshot(
+    doc(db(), 'risultati', 'ufficiali'),
+    (snap) => callback(snap.exists() ? snap.data() : {}),
+    (err) => {
+      // Senza questo handler un errore qui (es. permission-denied) veniva
+      // inghiottito in silenzio dall'SDK: il callback "next" non scattava mai
+      // e la pagina che dipende da questi dati restava vuota per sempre,
+      // senza nessun indizio in console del perché.
+      console.error('[db] onRisultatiSnapshot errore:', err.code || err.message, err);
+      if (onError) onError(err);
+    },
+  );
 }
 
 export async function patchRisultati(patch) {

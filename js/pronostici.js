@@ -25,7 +25,21 @@ export async function initPronostici() {
 
   const utente = getCurrentUser();
   if (!utente) return;
-  _pron = await getPronostici(utente.id);
+
+  // Stato "in caricamento" subito: prima di questa funzione la pagina
+  // restava sempre vuota (nessun placeholder statico in index.html) finché
+  // non arrivava il primo _render() — se qualcosa a valle falliva o
+  // impiegava tempo, sembrava "non si vede niente" senza nessun indizio.
+  const page = document.getElementById('page-pronostici');
+  if (page) page.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Caricamento pronostici…</p></div>';
+
+  try {
+    _pron = await getPronostici(utente.id);
+  } catch (e) {
+    console.error('[pronostici] Errore leggendo il pronostico:', e.code || e.message, e);
+    _mostraErrore(`Errore nel caricare il tuo pronostico (${e.code || e.message}).`);
+    return;
+  }
   if (!_pron) _pron = { segni: {}, risultatiEsatti: {}, classificaFinale: [], bonus: {} };
   if (!_pron.risultatiEsatti) _pron.risultatiEsatti = {};
 
@@ -42,8 +56,24 @@ export async function initPronostici() {
     if (!_pron.classificaFinale || !_pron.classificaFinale.length) {
       _pron.classificaFinale = (_risultati.squadre || []).map((s) => s.id);
     }
-    _render();
+    try {
+      _render();
+    } catch (e) {
+      console.error('[pronostici] Errore nel render:', e);
+      _mostraErrore(`Errore nel mostrare i pronostici: ${e.message}. Dettagli in console (F12).`);
+    }
+  }, (err) => {
+    _mostraErrore(`Errore nel caricare il calendario (${err.code || err.message}). Controlla le Firestore Rules o riprova più tardi.`);
   });
+}
+
+function _mostraErrore(msg) {
+  const page = document.getElementById('page-pronostici');
+  if (!page) return;
+  page.innerHTML = `
+    <div class="info-banner info-banner--yellow">
+      <span>⚠️</span><span>${_esc(msg)}</span>
+    </div>`;
 }
 
 export function cleanupPronostici() {
