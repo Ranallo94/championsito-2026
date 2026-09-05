@@ -4,9 +4,7 @@
  * prevista (ordinamento delle 36 squadre), bonus una tantum.
  */
 
-import {
-  getPronostici, savePronostici, onSistemaSnapshot, onRisultatiSnapshot,
-} from './db.js';
+import { getPronostici, savePronostici, onRisultatiSnapshot } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { showToast, showEmpty } from './ui.js';
 import { classificaPrevista, giornatePreviste } from './ranking.js';
@@ -14,16 +12,10 @@ import { classificaPrevista, giornatePreviste } from './ranking.js';
 let _risultati = null;
 let _pron = null;
 let _nomiSquadra = {};
-let _aperti = true;
 let _giornataAttiva = 1;
 let _unsubRisultati = null;
 
 export async function initPronostici() {
-  onSistemaSnapshot((cfg) => {
-    _aperti = cfg && cfg.pronostici_aperti !== false;
-    _aggiornaBannerChiusura();
-  });
-
   const utente = getCurrentUser();
   if (!utente) return;
 
@@ -112,9 +104,6 @@ function _render() {
       <h2 class="page-title">📋 Pronostici — Fase 1</h2>
       <span class="page-subtitle">Segno, classifica finale, bonus di fase</span>
     </div>
-    <div id="pron-banner-chiuso" class="info-banner info-banner--yellow" style="display:none">
-      <span>🔒</span><span>I pronostici sono chiusi. Puoi consultare la tua scheda ma non modificarla.</span>
-    </div>
 
     <div class="inner-tabs" id="pron-inner-tabs">
       <button class="tab active" data-tab="tab-pron-segni">Segno &amp; risultato esatto</button>
@@ -163,7 +152,6 @@ function _render() {
   _renderGiornataSelector(giornate);
   _renderPartite(giornate);
   _renderClassificaPrevista();
-  _aggiornaBannerChiusura();
 
   document.getElementById('btn-salva-segni').addEventListener('click', () => _salva(['segni', 'risultatiEsatti']));
   document.getElementById('btn-salva-bonus').addEventListener('click', () => _salva(['bonus']));
@@ -192,12 +180,12 @@ function _renderPartite(giornate) {
 
   const chiusa = _giornataChiusa(giornata);
   const bannerGiornata = document.getElementById('pron-banner-giornata-chiusa');
-  if (bannerGiornata) bannerGiornata.style.display = (chiusa && _aperti) ? '' : 'none';
+  if (bannerGiornata) bannerGiornata.style.display = chiusa ? '' : 'none';
 
   el.innerHTML = giornata.partite.map((p) => {
     const scelta = _pron.segni[p.id] || null;
     const esatto = _pron.risultatiEsatti[p.id] || {};
-    const disabled = (!_aperti || chiusa) ? 'disabled' : '';
+    const disabled = chiusa ? 'disabled' : '';
     return `
       <div class="partita-riga" data-match="${p.id}">
         <span class="partita-squadra partita-squadra--casa">${_esc(_nomiSquadra[p.casa] || p.casa)}</span>
@@ -215,7 +203,7 @@ function _renderPartite(giornate) {
       </div>`;
   }).join('');
 
-  if (_aperti && !chiusa) {
+  if (!chiusa) {
     el.querySelectorAll('.partita-riga').forEach((riga) => {
       const matchId = riga.dataset.match;
 
@@ -318,11 +306,6 @@ async function _salva(sezioni) {
   } catch (e) {
     showToast('Errore nel salvataggio: ' + e.message, 'error');
   }
-}
-
-function _aggiornaBannerChiusura() {
-  const banner = document.getElementById('pron-banner-chiuso');
-  if (banner) banner.style.display = _aperti ? 'none' : '';
 }
 
 function _esc(str) {

@@ -9,7 +9,6 @@ import { httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getPartecipanti, updatePartecipante, deletePartecipante,
   getRisultati, setRisultati, patchRisultati,
-  getSistema, updateSistema,
 } from './db.js';
 import { generaGiornate } from './calendario.js';
 import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
@@ -35,7 +34,7 @@ async function _render() {
   const tabCorrente = page.querySelector('#admin-inner-tabs .tab.active');
   if (tabCorrente && tabCorrente.dataset.tab) _tabAttiva = tabCorrente.dataset.tab;
 
-  const [partecipanti, sistema] = await Promise.all([getPartecipanti(), getSistema()]);
+  const partecipanti = await getPartecipanti();
   _risultati = await getRisultati();
 
   const inAttesa = partecipanti.filter((p) => !p.approvato && !p.disabilitato);
@@ -119,16 +118,7 @@ async function _render() {
     </div>
 
     <div id="tab-admin-config" class="tab-content ${_tabAttiva === 'tab-admin-config' ? 'active' : ''}">
-      <div class="field-group">
-        <label class="field-label">Pronostici (interruttore generale)</label>
-        <label class="switch-row">
-          <input type="checkbox" id="admin-toggle-aperti" ${sistema.pronostici_aperti !== false ? 'checked' : ''}>
-          <span>Pronostici aperti (gli utenti possono compilare/modificare la scheda)</span>
-        </label>
-        <p class="field-hint">Spento, blocca tutto: segni, classifica, bonus, tutte le giornate.</p>
-      </div>
-
-      <h3 class="reg-section-title" style="margin-top:24px">Pronostici per giornata</h3>
+      <h3 class="reg-section-title">Pronostici per giornata</h3>
       <p class="field-hint" style="margin-bottom:10px">Chiudi una giornata quando iniziano le sue partite: gli utenti non potranno più modificare segni e risultati di quella giornata, le altre restano aperte.</p>
       <div id="admin-giornate-apertura">
         ${(_risultati.giornate || []).length ? (_risultati.giornate || []).map((g) => {
@@ -148,16 +138,43 @@ async function _render() {
   _bindEventiUtenti(page);
   _bindEventiSquadre(page);
   _bindEventiRisultati(page);
-  _bindEventiConfig(page, sistema);
+  _bindEventiConfig(page);
 }
 
 // ── UTENTI ──────────────────────────────────────────────
+
+// Link WhatsApp "click to chat": wa.me vuole solo cifre con prefisso
+// internazionale, senza + né 00. Se il numero è italiano senza prefisso
+// (10 cifre che iniziano per 3, o rete fissa che inizia per 0) si aggiunge 39.
+function _linkWhatsApp(telefono) {
+  let cifre = String(telefono || '').replace(/\D/g, '');
+  if (!cifre) return null;
+  if (cifre.startsWith('00')) cifre = cifre.slice(2);
+  else if (!String(telefono).trim().startsWith('+') && (cifre.startsWith('3') || cifre.startsWith('0')) && cifre.length <= 11) {
+    cifre = '39' + cifre;
+  }
+  return `https://wa.me/${cifre}`;
+}
+
+function _schedaContatto(p) {
+  const wa = _linkWhatsApp(p.telefono);
+  return `
+    <div class="admin-utente-info">
+      <div class="admin-utente-nome">${_esc(p.nome)} ${_esc(p.cognome)}${p.nickname && p.nickname !== p.nome ? ` <small>“${_esc(p.nickname)}”</small>` : ''} ${p.isAdmin ? '⭐' : ''} ${p.disabilitato ? '🚫' : ''}</div>
+      <div class="admin-utente-dettagli">
+        <a href="mailto:${_esc(p.email)}">${_esc(p.email)}</a>
+        <span>·</span>
+        <a href="tel:${_esc(p.telefono)}">${_esc(p.telefono || '—')}</a>
+        ${wa ? `<a class="btn-whatsapp" href="${wa}" target="_blank" rel="noopener" title="Scrivi su WhatsApp">💬 WhatsApp</a>` : ''}
+      </div>
+    </div>`;
+}
 
 function _renderUtentiAttesa(lista) {
   if (!lista.length) return '<p class="field-hint">Nessuna richiesta in attesa.</p>';
   return lista.map((p) => `
     <div class="admin-riga" data-uid="${p.id}">
-      <span class="admin-riga-nome">${_esc(p.nome)} ${_esc(p.cognome)} <small>(${_esc(p.email)}, ${_esc(p.telefono)})</small></span>
+      ${_schedaContatto(p)}
       <span class="admin-riga-azioni">
         <button class="btn btn-primary btn-sm btn-approva">Approva</button>
         <button class="btn btn-secondary btn-sm btn-rifiuta">Rifiuta</button>
@@ -169,7 +186,7 @@ function _renderApprovati(lista) {
   if (!lista.length) return '<p class="field-hint">Nessun partecipante approvato.</p>';
   return lista.map((p) => `
     <div class="admin-riga" data-uid="${p.id}">
-      <span class="admin-riga-nome">${_esc(p.nickname || p.nome)} ${p.isAdmin ? '⭐' : ''} ${p.disabilitato ? '🚫' : ''}</span>
+      ${_schedaContatto(p)}
       <span class="admin-riga-azioni">
         <button class="btn btn-secondary btn-sm btn-toggle-disabilita">${p.disabilitato ? 'Riabilita' : 'Disabilita'}</button>
       </span>
@@ -351,12 +368,7 @@ function _renderPartiteRisultati(page, giornate) {
 
 // ── CONFIG ────────────────────────────────────────────────
 
-function _bindEventiConfig(page, sistema) {
-  page.querySelector('#admin-toggle-aperti')?.addEventListener('change', async (e) => {
-    await updateSistema({ pronostici_aperti: e.target.checked });
-    showToast(e.target.checked ? 'Pronostici aperti' : 'Pronostici chiusi', 'success');
-  });
-
+function _bindEventiConfig(page) {
   page.querySelectorAll('#admin-giornate-apertura .admin-riga').forEach((riga) => {
     const numero = Number(riga.dataset.giornata);
     riga.querySelector('.btn-toggle-giornata')?.addEventListener('click', async () => {
