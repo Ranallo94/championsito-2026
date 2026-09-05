@@ -39,7 +39,12 @@ body {
 }
 
 .screen { min-height: 100vh; }
-.screen:not(.active) { display: none; }
+/* Niente ":not(.active)" qui: le 4 schermate (login/attesa/disabilitato/app)
+   si mostrano/nascondono via style.display inline (vedi js/app.js), non via
+   classe "active" — una regola CSS basata sulla classe qui sotto avrebbe
+   rivinto sull'inline style non appena JS lo azzerava, ricoprendo tutto di
+   nuovo con display:none (bug reale trovato il 2026-09-05: dopo login la
+   schermata restava vuota nonostante nessun errore in console). */
 
 /* ── LOGIN ─────────────────────────────────────────── */
 .login-bg {
