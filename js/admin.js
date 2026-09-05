@@ -17,6 +17,7 @@ import { showToast, openModal, closeModal } from './ui.js';
 
 let _risultati = null;
 let _giornataAttiva = 1;
+let _tabAttiva = 'tab-admin-utenti';
 
 export async function initAdmin() {
   await _render();
@@ -25,6 +26,14 @@ export async function initAdmin() {
 async function _render() {
   const page = document.getElementById('page-admin');
   if (!page) return;
+
+  // Ricordiamo la sotto-scheda aperta PRIMA di ricostruire l'HTML: ogni
+  // azione admin (approva, salva, toggle...) richiama _render(), che prima
+  // riscriveva tutto con "Utenti" attiva hardcoded — risultato: qualunque
+  // click ti riportava alla prima scheda. Il cambio di scheda è gestito da
+  // app.js con un listener globale sui .tab, quindi lo leggiamo dal DOM.
+  const tabCorrente = page.querySelector('#admin-inner-tabs .tab.active');
+  if (tabCorrente && tabCorrente.dataset.tab) _tabAttiva = tabCorrente.dataset.tab;
 
   const [partecipanti, sistema] = await Promise.all([getPartecipanti(), getSistema()]);
   _risultati = await getRisultati();
@@ -38,20 +47,20 @@ async function _render() {
     </div>
 
     <div class="inner-tabs" id="admin-inner-tabs">
-      <button class="tab active" data-tab="tab-admin-utenti">Utenti</button>
-      <button class="tab" data-tab="tab-admin-squadre">Squadre &amp; calendario</button>
-      <button class="tab" data-tab="tab-admin-risultati">Risultati</button>
-      <button class="tab" data-tab="tab-admin-config">Configurazione</button>
+      <button class="tab ${_tabAttiva === 'tab-admin-utenti' ? 'active' : ''}" data-tab="tab-admin-utenti">Utenti</button>
+      <button class="tab ${_tabAttiva === 'tab-admin-squadre' ? 'active' : ''}" data-tab="tab-admin-squadre">Squadre &amp; calendario</button>
+      <button class="tab ${_tabAttiva === 'tab-admin-risultati' ? 'active' : ''}" data-tab="tab-admin-risultati">Risultati</button>
+      <button class="tab ${_tabAttiva === 'tab-admin-config' ? 'active' : ''}" data-tab="tab-admin-config">Configurazione</button>
     </div>
 
-    <div id="tab-admin-utenti" class="tab-content active">
+    <div id="tab-admin-utenti" class="tab-content ${_tabAttiva === 'tab-admin-utenti' ? 'active' : ''}">
       <h3 class="reg-section-title">In attesa di approvazione (${inAttesa.length})</h3>
       <div id="admin-attesa-list">${_renderUtentiAttesa(inAttesa)}</div>
       <h3 class="reg-section-title" style="margin-top:24px">Partecipanti (${approvati.length})</h3>
       <div id="admin-approvati-list">${_renderApprovati(approvati)}</div>
     </div>
 
-    <div id="tab-admin-squadre" class="tab-content">
+    <div id="tab-admin-squadre" class="tab-content ${_tabAttiva === 'tab-admin-squadre' ? 'active' : ''}">
       <div class="info-banner info-banner--green">
         <span>🏆</span>
         <span>Carica in un colpo solo le 36 squadre e le 8 giornate ufficiali della fase a campionato Champions League 2026/27 (sorteggio di Monaco, 27 agosto 2026 — squadre, abbinamenti e date reali). Se esiste già un calendario, verrà sovrascritto.</span>
@@ -74,7 +83,7 @@ async function _render() {
       <button class="btn btn-secondary" id="btn-genera-calendario" style="margin-left:8px">🗓️ Genera calendario casuale (8 giornate)</button>
     </div>
 
-    <div id="tab-admin-risultati" class="tab-content">
+    <div id="tab-admin-risultati" class="tab-content ${_tabAttiva === 'tab-admin-risultati' ? 'active' : ''}">
       <div class="giornata-selector" id="admin-giornata-selector"></div>
       <div id="admin-toggle-pronostici-giornata" style="margin-bottom:16px"></div>
       <div id="admin-partite-risultati"></div>
@@ -110,7 +119,7 @@ async function _render() {
       <button class="btn btn-secondary" id="btn-ricalcola" style="margin-left:8px">🔄 Ricalcola classifica ora</button>
     </div>
 
-    <div id="tab-admin-config" class="tab-content">
+    <div id="tab-admin-config" class="tab-content ${_tabAttiva === 'tab-admin-config' ? 'active' : ''}">
       <div class="field-group">
         <label class="field-label">Pronostici</label>
         <label class="switch-row">
