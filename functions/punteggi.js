@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const { classificaSquadre, fasceDaOrdine } = require('./ranking.js');
+const { classificaSquadre, fasceDaOrdine, classificaPrevista } = require('./ranking.js');
 
 const TABELLA_PUNTI = {
   segno: 3,
@@ -32,14 +32,15 @@ function _zonaDi(squadraId, top8, playoff) {
 /**
  * Calcola il punteggio Fase 1 di un pronostico.
  * @param {Object} pron       documento pronostici/{uid}
- *   { segni: {matchId: '1'|'X'|'2'}, classificaFinale: [squadraId,...36], bonus: {capocannoniere, assistman, cartellini} }
+ *   { segni: {matchId: '1'|'X'|'2'}, risultatiEsatti: {matchId: {golCasa, golTrasferta}},
+ *     bonus: {capocannoniere, assistman, cartellini} }
+ *   (la classifica prevista è derivata da segni + risultatiEsatti, vedi ranking.js)
  * @param {Object} risultati  documento risultati/ufficiali
  *   { squadre: [{id,nome}], giornate: [...], bonus: {...}, congelata: bool }
  */
 function calcolaPunteggio(pron, risultati) {
   const segniPron = (pron && pron.segni) || {};
   const risultatiEsattiPron = (pron && pron.risultatiEsatti) || {};
-  const classificaPron = (pron && pron.classificaFinale) || [];
   const bonusPron = (pron && pron.bonus) || {};
 
   const giornate = (risultati && risultati.giornate) || [];
@@ -84,6 +85,10 @@ function calcolaPunteggio(pron, risultati) {
     const ordineRealeIds = ordineReale.map((s) => s.squadraId);
     const { top8: top8R, playoff: playoffR } = fasceDaOrdine(ordineRealeIds);
 
+    // Classifica prevista DERIVATA dai risultati pronosticati (non più il
+    // campo classificaFinale ordinato a mano, che dal 2026-09-05 non esiste
+    // più nella UI). Calcolata qui server-side: è l'unica fonte di verità.
+    const classificaPron = classificaPrevista(pron, risultati.squadre, giornate).map((s) => s.squadraId);
     const { top8: top8P, playoff: playoffP } = fasceDaOrdine(classificaPron);
 
     const posizioneRealeById = {};
