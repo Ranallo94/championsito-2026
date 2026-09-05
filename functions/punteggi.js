@@ -12,6 +12,12 @@ const { classificaSquadre, fasceDaOrdine } = require('./ranking.js');
 
 const TABELLA_PUNTI = {
   segno: 3,
+  // Risultato esatto per partita (aggiunto 2026-09-05, richiesto esplicitamente
+  // in aggiunta al segno). Valore PLACEHOLDER: 0 punti finché non si ricalibra
+  // la simulazione Monte Carlo con questa nuova categoria (vedi CLAUDE.md,
+  // "Domande ancora aperte"). Il calcolo è già attivo (breakdown.risultatoEsatto
+  // e meta.risultatiEsattiIndovinati), semplicemente non pesa ancora sul totale.
+  risultatoEsatto: 0,
   bonusFineFase: 60, // capocannoniere / assistman / squadra più ammonita, ciascuno
   fascia: { top8: 20, playoff: 10, eliminate: 6 },
   posizioneEsatta: { top8: 70, playoff: 35, eliminate: 15 },
@@ -32,6 +38,7 @@ function _zonaDi(squadraId, top8, playoff) {
  */
 function calcolaPunteggio(pron, risultati) {
   const segniPron = (pron && pron.segni) || {};
+  const risultatiEsattiPron = (pron && pron.risultatiEsatti) || {};
   const classificaPron = (pron && pron.classificaFinale) || [];
   const bonusPron = (pron && pron.bonus) || {};
 
@@ -39,8 +46,9 @@ function calcolaPunteggio(pron, risultati) {
   const bonusReale = (risultati && risultati.bonus) || {};
   const congelata = !!(risultati && risultati.congelata);
 
-  // ── A. Segno per partita ──────────────────────────────
+  // ── A. Segno + risultato esatto per partita ───────────
   let puntiSegno = 0, segniIndovinati = 0, segniGiocati = 0;
+  let puntiRisultatoEsatto = 0, risultatiEsattiIndovinati = 0;
   giornate.forEach((g) => {
     (g.partite || []).forEach((p) => {
       if (p.golCasa == null || p.golTrasferta == null) return; // non ancora giocata
@@ -49,6 +57,11 @@ function calcolaPunteggio(pron, risultati) {
       if (segniPron[p.id] === segnoReale) {
         puntiSegno += TABELLA_PUNTI.segno;
         segniIndovinati++;
+      }
+      const esatto = risultatiEsattiPron[p.id];
+      if (esatto && Number(esatto.golCasa) === p.golCasa && Number(esatto.golTrasferta) === p.golTrasferta) {
+        puntiRisultatoEsatto += TABELLA_PUNTI.risultatoEsatto;
+        risultatiEsattiIndovinati++;
       }
     });
   });
@@ -94,13 +107,27 @@ function calcolaPunteggio(pron, risultati) {
     });
   }
 
-  const totale = puntiSegno + puntiBonus + puntiFascia + puntiPosizione;
-  const breakdown = { segno: puntiSegno, bonus: puntiBonus, fascia: puntiFascia, posizione: puntiPosizione };
+  const totale = puntiSegno + puntiRisultatoEsatto + puntiBonus + puntiFascia + puntiPosizione;
+  const breakdown = {
+    segno: puntiSegno,
+    risultatoEsatto: puntiRisultatoEsatto,
+    bonus: puntiBonus,
+    fascia: puntiFascia,
+    posizione: puntiPosizione,
+  };
   // Spareggio: nell'ordine di importanza della tabella punti (posizione esatta
-  // pesa di più, quindi decide per prima in caso di parità totale).
-  const spareggio = [posizioniIndovinate, fasceIndovinate, bonusIndovinati, segniIndovinati];
+  // pesa di più, quindi decide per prima in caso di parità totale). Il
+  // risultato esatto è per ora un indicatore informativo (0 punti finché non
+  // calibrato) ma lo teniamo comunque in classifica di spareggio, così se in
+  // futuro gli si assegna un peso lo spareggio è già coerente.
+  const spareggio = [posizioniIndovinate, fasceIndovinate, bonusIndovinati, risultatiEsattiIndovinati, segniIndovinati];
 
-  return { totale, breakdown, spareggio, meta: { segniGiocati, segniIndovinati, congelata } };
+  return {
+    totale,
+    breakdown,
+    spareggio,
+    meta: { segniGiocati, segniIndovinati, risultatiEsattiIndovinati, congelata },
+  };
 }
 
 module.exports = { TABELLA_PUNTI, calcolaPunteggio };
