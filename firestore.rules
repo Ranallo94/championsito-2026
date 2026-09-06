@@ -28,33 +28,30 @@ service cloud.firestore {
         && request.resource.data.approvato == false
         && request.resource.data.isAdmin == false;
 
-      // Aggiornamento: solo admin (approvazione, correzioni). Un utente con
-      // isOwner:true può essere modificato SOLO da se stesso, così nessun altro
-      // admin può revocargli i privilegi.
-      allow update: if isAdmin() && (
-        !resource.data.get('isOwner', false) ||
-        request.auth.uid == uid
-      );
+      // Aggiornamento: solo admin (approvazione, correzioni, promozione ad
+      // admin di altri membri). Un utente con isOwner:true può essere
+      // modificato SOLO da se stesso, così nessun altro admin può revocargli
+      // i privilegi; e il flag isOwner non è modificabile dal client da
+      // nessuno (si assegna solo con set-owner.js / Admin SDK).
+      allow update: if isAdmin()
+        && (!resource.data.get('isOwner', false) || request.auth.uid == uid)
+        && request.resource.data.get('isOwner', false) == resource.data.get('isOwner', false);
 
       // Cancellazione: solo admin (rifiuto richieste).
       allow delete: if isAdmin();
     }
 
     // ── PRONOSTICI ────────────────────────────────────
-    // Fase 1 (fase a campionato): segni 1X2 per giornata + classifica finale
-    // prevista + bonus una tantum. Un solo lock per tutta la scheda: si chiude
-    // all'inizio della prima giornata (niente lock differenziato per giornata,
-    // per evitare che un utente aggiusti il pronostico di giornata 3 dopo aver
-    // visto l'esito di giornata 1 — semplice e conservativo).
-    function pronosticiAperti() {
-      let cfg = exists(/databases/$(database)/documents/sistema/config)
-        ? get(/databases/$(database)/documents/sistema/config).data : {};
-      return (!exists(/databases/$(database)/documents/sistema/config)) ||
-        (cfg.get('pronostici_aperti', true) == true);
-    }
+    // Fase 1 (fase a campionato): segni + risultati esatti per giornata,
+    // bonus una tantum. L'apertura/chiusura è PER GIORNATA (campo
+    // risultati/ufficiali.giornate[i].aperta) ed è gestita lato client
+    // (aggiornato 2026-09-05: rimosso l'interruttore generale
+    // sistema/config.pronostici_aperti). Le rules non possono verificare
+    // "quali giornate tocca questa scrittura" senza logica complessa sugli
+    // array, quindi qui si controlla solo identità e approvazione.
     match /pronostici/{uid} {
       allow read:  if isApprovato();
-      allow write: if (isApprovato() && request.auth.uid == uid && pronosticiAperti()) || isAdmin();
+      allow write: if (isApprovato() && request.auth.uid == uid) || isAdmin();
     }
 
     // ── RISULTATI ─────────────────────────────────────
