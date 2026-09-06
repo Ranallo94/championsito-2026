@@ -8,6 +8,7 @@ import { getPronostici, savePronostici, onRisultatiSnapshot } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { showToast, showEmpty } from './ui.js';
 import { classificaPrevista, giornatePreviste } from './ranking.js';
+import { selectGiocatori } from './giocatori.js';
 
 let _risultati = null;
 let _pron = null;
@@ -142,14 +143,16 @@ function _render() {
       </div>`}
       <div class="field-group">
         <label class="field-label">Capocannoniere della fase a gironi</label>
-        <input id="bonus-capocannoniere" type="text" class="field-input" placeholder="Nome giocatore" value="${_esc(_pron.bonus.capocannoniere)}" ${bonusDisabled}>
+        ${selectGiocatori('bonus-capocannoniere', _pron.bonus.capocannoniere, _risultati.squadre, ['D', 'M', 'F'], bonusChiusi)}
+        <p class="field-hint">Rose aggiornate al 5 settembre 2026 (fonte ESPN), raggruppate per squadra. D = difensore, M = centrocampista, F = attaccante.</p>
       </div>
       <div class="field-group">
         <label class="field-label">Miglior assistman della fase a gironi</label>
-        <input id="bonus-assistman" type="text" class="field-input" placeholder="Nome giocatore" value="${_esc(_pron.bonus.assistman)}" ${bonusDisabled}>
+        ${selectGiocatori('bonus-assistman', _pron.bonus.assistman, _risultati.squadre, ['D', 'M', 'F'], bonusChiusi)}
       </div>
       <div class="field-group">
-        <label class="field-label">Squadra con più cartellini (ammonizioni)</label>
+        <label class="field-label">Squadra con più cartellini (gialli + rossi)</label>
+        <p class="field-hint" style="margin:0 0 6px">Contano tutti i cartellini, gialli e rossi. A parità di totale vince la squadra con più rossi.</p>
         <select id="bonus-cartellini" class="field-input" ${bonusDisabled}>
           <option value="">— scegli una squadra —</option>
           ${(_risultati.squadre || []).map((s) => `<option value="${s.id}" ${_pron.bonus.cartellini === s.id ? 'selected' : ''}>${_esc(s.nome)}</option>`).join('')}

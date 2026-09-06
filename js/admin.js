@@ -98,7 +98,8 @@ async function _render() {
         ${selectGiocatori('admin-bonus-assistman', _risultati.bonus?.assistman, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
       </div>
       <div class="field-group">
-        <label class="field-label">Squadra più ammonita</label>
+        <label class="field-label">Squadra con più cartellini (gialli + rossi)</label>
+        <p class="field-hint" style="margin:0 0 6px">Regola: somma di gialli e rossi della fase a campionato; a parità di totale, la squadra con più rossi. Verifica sulle statistiche UEFA a fase conclusa.</p>
         <select id="admin-bonus-cartellini" class="field-input">
           <option value="">— scegli una squadra —</option>
           ${(_risultati.squadre || []).map((s) => `<option value="${s.id}" ${_risultati.bonus?.cartellini === s.id ? 'selected' : ''}>${_esc(s.nome)}</option>`).join('')}
