@@ -13,6 +13,8 @@ import {
 import { generaGiornate } from './calendario.js';
 import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
 import { showToast, openModal, closeModal } from './ui.js';
+import { selectGiocatori } from './giocatori.js';
+import { getCurrentUser } from './auth.js';
 
 let _risultati = null;
 let _giornataAttiva = 1;
@@ -89,11 +91,11 @@ async function _render() {
       <h3 class="reg-section-title" style="margin-top:24px">Bonus reali di fase</h3>
       <div class="field-group">
         <label class="field-label">Capocannoniere</label>
-        <input id="admin-bonus-capocannoniere" type="text" class="field-input" value="${_esc(_risultati.bonus?.capocannoniere)}">
+        ${selectGiocatori('admin-bonus-capocannoniere', _risultati.bonus?.capocannoniere, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
       </div>
       <div class="field-group">
         <label class="field-label">Assistman</label>
-        <input id="admin-bonus-assistman" type="text" class="field-input" value="${_esc(_risultati.bonus?.assistman)}">
+        ${selectGiocatori('admin-bonus-assistman', _risultati.bonus?.assistman, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
       </div>
       <div class="field-group">
         <label class="field-label">Squadra più ammonita</label>
@@ -160,7 +162,7 @@ function _schedaContatto(p) {
   const wa = _linkWhatsApp(p.telefono);
   return `
     <div class="admin-utente-info">
-      <div class="admin-utente-nome">${_esc(p.nome)} ${_esc(p.cognome)}${p.nickname && p.nickname !== p.nome ? ` <small>“${_esc(p.nickname)}”</small>` : ''} ${p.isAdmin ? '⭐' : ''} ${p.disabilitato ? '🚫' : ''}</div>
+      <div class="admin-utente-nome">${_esc(p.nome)} ${_esc(p.cognome)}${p.nickname && p.nickname !== p.nome ? ` <small>“${_esc(p.nickname)}”</small>` : ''} ${p.isOwner ? '<span title="Proprietario">👑</span>' : (p.isAdmin ? '<span title="Admin">⭐</span>' : '')} ${p.disabilitato ? '🚫' : ''}</div>
       <div class="admin-utente-dettagli">
         <a href="mailto:${_esc(p.email)}">${_esc(p.email)}</a>
         <span>·</span>
@@ -184,13 +186,22 @@ function _renderUtentiAttesa(lista) {
 
 function _renderApprovati(lista) {
   if (!lista.length) return '<p class="field-hint">Nessun partecipante approvato.</p>';
-  return lista.map((p) => `
+  const me = getCurrentUser();
+  return lista.map((p) => {
+    // Il proprietario (isOwner) non è toccabile dagli altri admin (lo
+    // impongono anche le Firestore Rules); nessuno può togliere l'admin a
+    // se stesso da qui, per non chiudersi fuori.
+    const seStesso = me && me.id === p.id;
+    const puoCambiareAdmin = !p.isOwner && !seStesso;
+    return `
     <div class="admin-riga" data-uid="${p.id}">
       ${_schedaContatto(p)}
       <span class="admin-riga-azioni">
-        <button class="btn btn-secondary btn-sm btn-toggle-disabilita">${p.disabilitato ? 'Riabilita' : 'Disabilita'}</button>
+        ${puoCambiareAdmin ? `<button class="btn ${p.isAdmin ? 'btn-secondary' : 'btn-primary'} btn-sm btn-toggle-admin">${p.isAdmin ? 'Togli admin' : 'Rendi admin'}</button>` : ''}
+        ${!p.isOwner ? `<button class="btn btn-secondary btn-sm btn-toggle-disabilita">${p.disabilitato ? 'Riabilita' : 'Disabilita'}</button>` : ''}
       </span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function _bindEventiUtenti(page) {
@@ -231,6 +242,36 @@ function _bindEventiUtenti(page) {
       const p = partecipanti.find((x) => x.id === uid);
       await updatePartecipante(uid, { disabilitato: !p.disabilitato });
       await _render();
+    });
+
+    riga.querySelector('.btn-toggle-admin')?.addEventListener('click', async () => {
+      const partecipanti = await getPartecipanti();
+      const p = partecipanti.find((x) => x.id === uid);
+      if (!p) return;
+      const nome = p.nickname || p.nome;
+      const promuovi = !p.isAdmin;
+      openModal({
+        title: promuovi ? `Rendere admin ${_esc(nome)}?` : `Togliere l'admin a ${_esc(nome)}?`,
+        body: promuovi
+          ? '<p>Potrà approvare e rifiutare richieste, inserire risultati, aprire/chiudere giornate e nominare altri admin. Non potrà toccare il proprietario dell\'app.</p>'
+          : '<p>Tornerà un partecipante normale: potrà solo compilare i propri pronostici.</p>',
+        buttons: [
+          { label: 'Annulla', cls: 'btn btn-secondary', onClick: closeModal },
+          {
+            label: promuovi ? 'Rendi admin' : 'Togli admin', cls: promuovi ? 'btn btn-primary' : 'btn btn-danger',
+            onClick: async () => {
+              closeModal();
+              try {
+                await updatePartecipante(uid, { isAdmin: promuovi });
+                showToast(promuovi ? `${nome} è ora admin` : `${nome} non è più admin`, 'success');
+                await _render();
+              } catch (e) {
+                showToast('Errore: ' + e.message, 'error');
+              }
+            },
+          },
+        ],
+      });
     });
   });
 }
