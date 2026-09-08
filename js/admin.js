@@ -8,7 +8,7 @@
 import { httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js';
 import {
   getPartecipanti, updatePartecipante, deletePartecipante,
-  getRisultati, setRisultati, patchRisultati,
+  getRisultati, setRisultati, patchRisultati, getTuttiPronostici,
 } from './db.js';
 import { generaGiornate } from './calendario.js';
 import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
@@ -17,8 +17,48 @@ import { selectGiocatori } from './giocatori.js';
 import { getCurrentUser } from './auth.js';
 
 let _risultati = null;
+let _pronosticiPerUid = {};
 let _giornataAttiva = 1;
 let _tabAttiva = 'tab-admin-utenti';
+
+/**
+ * Contatore pronostici salvati di un utente: per giornata (partite con
+ * segno e/o risultato esatto salvato su 18), totale su 144, bonus su 3.
+ */
+function _contaPronostici(uid) {
+  const pron = _pronosticiPerUid[uid] || {};
+  const segni = pron.segni || {};
+  const esatti = pron.risultatiEsatti || {};
+  const giornate = _risultati?.giornate || [];
+  const perGiornata = giornate.map((g) => {
+    const tot = (g.partite || []).length;
+    const fatte = (g.partite || []).filter((p) => segni[p.id] || esatti[p.id]).length;
+    const conEsatto = (g.partite || []).filter((p) => esatti[p.id]).length;
+    return { numero: g.numero, fatte, tot, conEsatto, chiusa: g.aperta === false };
+  });
+  const totale = perGiornata.reduce((n, g) => n + g.fatte, 0);
+  const totaleMax = perGiornata.reduce((n, g) => n + g.tot, 0);
+  const b = pron.bonus || {};
+  const bonus = ['capocannoniere', 'assistman', 'cartellini'].filter((k) => b[k]).length;
+  return { perGiornata, totale, totaleMax, bonus };
+}
+
+function _renderContatore(uid) {
+  const c = _contaPronostici(uid);
+  if (!c.totaleMax) return '';
+  const completo = c.totale === c.totaleMax && c.bonus === 3;
+  const chips = c.perGiornata.map((g) => {
+    const stato = g.fatte === g.tot ? 'ok' : (g.fatte === 0 ? 'vuota' : 'parziale');
+    return `<span class="chip-g chip-g--${stato}" title="G${g.numero}: ${g.fatte}/${g.tot} partite, ${g.conEsatto} con risultato esatto${g.chiusa ? ' — giornata chiusa' : ''}">${g.chiusa ? '🔒' : ''}G${g.numero} ${g.fatte}/${g.tot}</span>`;
+  }).join('');
+  const bonusStato = c.bonus === 3 ? 'ok' : (c.bonus === 0 ? 'vuota' : 'parziale');
+  return `
+    <div class="admin-contatore">
+      <span class="admin-contatore-tot ${completo ? 'ok' : ''}">${completo ? '✅' : '📝'} ${c.totale}/${c.totaleMax} partite</span>
+      ${chips}
+      <span class="chip-g chip-g--${bonusStato}" title="Bonus compilati">Bonus ${c.bonus}/3</span>
+    </div>`;
+}
 
 export async function initAdmin() {
   await _render();
@@ -38,6 +78,12 @@ async function _render() {
 
   const partecipanti = await getPartecipanti();
   _risultati = await getRisultati();
+  _pronosticiPerUid = {};
+  try {
+    (await getTuttiPronostici()).forEach((p) => { _pronosticiPerUid[p.id] = p; });
+  } catch (e) {
+    console.error('[admin] Impossibile leggere i pronostici per il contatore:', e);
+  }
 
   const inAttesa = partecipanti.filter((p) => !p.approvato && !p.disabilitato);
   const approvati = partecipanti.filter((p) => p.approvato);
@@ -58,6 +104,7 @@ async function _render() {
       <h3 class="reg-section-title">In attesa di approvazione (${inAttesa.length})</h3>
       <div id="admin-attesa-list">${_renderUtentiAttesa(inAttesa)}</div>
       <h3 class="reg-section-title" style="margin-top:24px">Partecipanti (${approvati.length})</h3>
+      ${_renderRiepilogoGiornate(approvati)}
       <div id="admin-approvati-list">${_renderApprovati(approvati)}</div>
     </div>
 
@@ -195,14 +242,39 @@ function _renderApprovati(lista) {
     const seStesso = me && me.id === p.id;
     const puoCambiareAdmin = !p.isOwner && !seStesso;
     return `
-    <div class="admin-riga" data-uid="${p.id}">
-      ${_schedaContatto(p)}
-      <span class="admin-riga-azioni">
-        ${puoCambiareAdmin ? `<button class="btn ${p.isAdmin ? 'btn-secondary' : 'btn-primary'} btn-sm btn-toggle-admin">${p.isAdmin ? 'Togli admin' : 'Rendi admin'}</button>` : ''}
-        ${!p.isOwner ? `<button class="btn btn-secondary btn-sm btn-toggle-disabilita">${p.disabilitato ? 'Riabilita' : 'Disabilita'}</button>` : ''}
-      </span>
+    <div class="admin-riga admin-riga--utente" data-uid="${p.id}">
+      <div class="admin-riga-testa">
+        ${_schedaContatto(p)}
+        <span class="admin-riga-azioni">
+          ${puoCambiareAdmin ? `<button class="btn ${p.isAdmin ? 'btn-secondary' : 'btn-primary'} btn-sm btn-toggle-admin">${p.isAdmin ? 'Togli admin' : 'Rendi admin'}</button>` : ''}
+          ${!p.isOwner ? `<button class="btn btn-secondary btn-sm btn-toggle-disabilita">${p.disabilitato ? 'Riabilita' : 'Disabilita'}</button>` : ''}
+        </span>
+      </div>
+      ${_renderContatore(p.id)}
     </div>`;
   }).join('');
+}
+
+/** Riepilogo in testa alla lista: quanti partecipanti hanno completato ogni giornata. */
+function _renderRiepilogoGiornate(lista) {
+  const giornate = _risultati?.giornate || [];
+  if (!giornate.length || !lista.length) return '';
+  const n = lista.length;
+  const chips = giornate.map((g) => {
+    const completi = lista.filter((p) => {
+      const c = _contaPronostici(p.id).perGiornata.find((x) => x.numero === g.numero);
+      return c && c.fatte === c.tot;
+    }).length;
+    const stato = completi === n ? 'ok' : (completi === 0 ? 'vuota' : 'parziale');
+    return `<span class="chip-g chip-g--${stato}" title="Partecipanti con G${g.numero} completa">${g.aperta === false ? '🔒' : ''}G${g.numero} ${completi}/${n}</span>`;
+  }).join('');
+  const bonusOk = lista.filter((p) => _contaPronostici(p.id).bonus === 3).length;
+  return `
+    <div class="admin-contatore admin-contatore--riepilogo">
+      <span class="admin-contatore-tot">Giornate complete per partecipante:</span>
+      ${chips}
+      <span class="chip-g chip-g--${bonusOk === n ? 'ok' : (bonusOk === 0 ? 'vuota' : 'parziale')}">Bonus ${bonusOk}/${n}</span>
+    </div>`;
 }
 
 function _bindEventiUtenti(page) {
