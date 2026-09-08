@@ -342,6 +342,16 @@ textarea.field-input { resize: vertical; }
 .admin-utente-dettagli a:hover { text-decoration: underline; }
 .btn-whatsapp { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: #25D366; color: #0b141a !important; font-weight: 700; font-size: 12px; }
 .btn-whatsapp:hover { text-decoration: none !important; filter: brightness(1.08); }
+.admin-riga--utente { flex-direction: column; align-items: stretch; gap: 8px; }
+.admin-riga-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.admin-contatore { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.admin-contatore--riepilogo { border-top: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 10px; background: var(--surface); }
+.admin-contatore-tot { font-weight: 700; color: var(--text-dim); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.admin-contatore-tot.ok { color: var(--magenta); }
+.chip-g { display: inline-block; padding: 2px 7px; border-radius: 999px; font-weight: 700; font-variant-numeric: tabular-nums; border: 1px solid var(--border); color: var(--text-dim); background: var(--surface-2); white-space: nowrap; }
+.chip-g--ok { background: rgba(37, 211, 102, 0.15); border-color: rgba(37, 211, 102, 0.5); color: #6ee7a0; }
+.chip-g--parziale { background: rgba(255, 204, 0, 0.12); border-color: rgba(255, 204, 0, 0.5); color: #ffd85c; }
+.chip-g--vuota { opacity: 0.55; }
 @media (max-width: 480px) {
   .admin-riga { flex-direction: column; align-items: stretch; gap: 8px; }
 }
