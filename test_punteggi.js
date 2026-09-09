@@ -161,6 +161,15 @@ assert.deepStrictEqual([st[id(3)].punti, st[id(34)].punti, st[id(34)].gf], [0, 3
 assert.strictEqual(st[id(4)].giocate, 0, 'partita non pronosticata non deve contare');
 console.log('✅ classificaPrevista: convenzione da solo segno (1-0 / 1-1 / 0-1) e partite non pronosticate ignorate');
 
+// ── Convenzione "solo segno" anche per i PUNTI del risultato esatto ──
+// g1_p1 reale: sq01 1-0 sq36. Chi dà solo '1' vale 1-0 -> segno + esatto.
+// g1_p2 reale: sq02 2-0 sq35. Chi dà solo '1' vale 1-0 -> solo segno.
+const risSoloSegno = calcolaPunteggio({ segni: { g1_p1: '1', g1_p2: '1' } }, risultati);
+assert.strictEqual(risSoloSegno.meta.segniIndovinati, 2);
+assert.strictEqual(risSoloSegno.meta.risultatiEsattiIndovinati, 1, "solo segno '1' con reale 1-0 deve valere come risultato esatto");
+assert.strictEqual(risSoloSegno.breakdown.risultatoEsatto, TABELLA_PUNTI.risultatoEsatto);
+console.log('✅ risultato esatto: la convenzione da solo segno (1-0 / 1-1 / 0-1) vale anche per i +10');
+
 // ── Sincronia fra functions/ranking.js (CJS) e js/ranking.js (ESM) ──
 (async () => {
   const { pathToFileURL } = require('url');
@@ -173,5 +182,11 @@ console.log('✅ classificaPrevista: convenzione da solo segno (1-0 / 1-1 / 0-1)
   assert.deepStrictEqual(rb, ra, 'js/ranking.js e functions/ranking.js producono classifiche reali diverse');
   assert.deepStrictEqual(esm.TABELLA_PUNTI, TABELLA_PUNTI, 'js/ranking.js TABELLA_PUNTI diversa da functions/punteggi.js');
   console.log('✅ js/ranking.js (browser) e functions/ranking.js (Cloud Functions) sono allineati, tabella punti inclusa');
+
+  const esmP = await import(pathToFileURL(path.join(__dirname, 'js', 'punteggi.js')).href);
+  for (const [pr, ris] of [[pron, risultati], [pron, risultatiNonCongelati], [pronSoloSegni, risultati]]) {
+    assert.deepStrictEqual(esmP.calcolaPunteggio(pr, ris), calcolaPunteggio(pr, ris), 'js/punteggi.js e functions/punteggi.js danno punteggi diversi');
+  }
+  console.log('✅ js/punteggi.js (browser, ricalcolo admin) e functions/punteggi.js (Cloud Functions) danno gli stessi punteggi');
   console.log('\nTutti i test sono passati.');
 })().catch((e) => { console.error(e); process.exit(1); });
