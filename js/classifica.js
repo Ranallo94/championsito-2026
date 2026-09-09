@@ -12,11 +12,18 @@ let _unsub = null;
 let _ultimaLista = [];
 
 export async function initClassifica() {
-  _unsub = onClassificaSnapshot((lista) => {
+  _unsub = onClassificaSnapshot((lista, meta) => {
     _ultimaLista = lista || [];
     _render(_ultimaLista);
     const upd = document.getElementById('classifica-updated');
-    if (upd) upd.textContent = `Aggiornata alle ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+    if (upd) {
+      const quando = meta && meta.updatedAt
+        ? meta.updatedAt.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      const chi = meta && meta.calcolataDa === 'admin-browser' ? 'admin' : 'Cloud Function';
+      upd.textContent = `Calcolata il ${quando} (${chi})`;
+      upd.title = 'Chi ha scritto l\'ultima classifica: "admin" = ricalcolo dal pannello admin; "Cloud Function" = trigger automatico sul server';
+    }
   });
 
   const search = document.getElementById('classifica-search');

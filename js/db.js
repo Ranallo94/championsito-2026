@@ -87,7 +87,13 @@ export async function setClassifica(partecipanti) {
 
 export function onClassificaSnapshot(callback) {
   return onSnapshot(doc(db(), 'classifica', 'snapshot'), (snap) => {
-    callback(snap.exists() ? (snap.data().partecipanti || []) : []);
+    const d = snap.exists() ? snap.data() : {};
+    callback(d.partecipanti || [], {
+      updatedAt: d.updatedAt && d.updatedAt.toDate ? d.updatedAt.toDate() : null,
+      // 'admin-browser' se scritta da admin.js; assente se scritta dalla
+      // Cloud Function (utile per capire chi ha calcolato l'ultima volta).
+      calcolataDa: d.calcolataDa || 'cloud-function',
+    });
   });
 }
 
