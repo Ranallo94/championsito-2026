@@ -14,6 +14,18 @@
 export const N_SQUADRE_TOP8 = 8;
 export const N_SQUADRE_PLAYOFF = 16; // 9ª-24ª
 
+// Copia browser di functions/punteggi.js TABELLA_PUNTI (per la scheda
+// profilo, che ricalcola i punti partita per partita lato client). La
+// fonte di verità resta la Cloud Function; test_punteggi.js verifica che
+// le due copie coincidano.
+export const TABELLA_PUNTI = {
+  segno: 3,
+  risultatoEsatto: 10,
+  bonusFineFase: 30,
+  fascia: { top8: 15, playoff: 3, eliminate: 8 },
+  posizioneEsatta: { top8: 40, playoff: 12, eliminate: 12 },
+};
+
 export function classificaSquadre(squadre, giornate) {
   const stats = {};
   (squadre || []).forEach((sq) => {

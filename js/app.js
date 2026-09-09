@@ -153,7 +153,14 @@ async function mostraApp() {
   document.getElementById('screen-app').style.display = '';
 
   const displayName = STATE.utente.nickname || STATE.utente.nome || '';
-  document.getElementById('header-username').textContent = displayName;
+  const headerUser = document.getElementById('header-username');
+  headerUser.textContent = displayName;
+  // Il proprio nome in alto apre la propria scheda profilo.
+  headerUser.style.cursor = 'pointer';
+  headerUser.title = 'La mia scheda';
+  headerUser.onclick = () => {
+    import('./profilo.js').then((m) => m.apriProfilo(STATE.utente.id, STATE.pagina === 'profilo' ? 'classifica' : STATE.pagina));
+  };
 
   if (STATE.utente.isAdmin) {
     document.getElementById('nav-admin').style.display = '';

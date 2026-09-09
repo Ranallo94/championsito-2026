@@ -6,6 +6,7 @@
 
 import { onClassificaSnapshot } from './db.js';
 import { showEmpty, debounce } from './ui.js';
+import { apriProfilo } from './profilo.js';
 
 let _unsub = null;
 let _ultimaLista = [];
@@ -46,20 +47,27 @@ function _render(lista) {
     const medaglia = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : pos;
     const b = p.breakdown || {};
     return `
-      <div class="classifica-riga ${pos <= 3 ? 'classifica-riga--podio' : ''}">
+      <div class="classifica-riga classifica-riga--click ${pos <= 3 ? 'classifica-riga--podio' : ''}" data-uid="${_esc(p.id)}" role="button" tabindex="0" title="Apri la scheda di ${_esc(p.nome)}">
         <div class="classifica-pos">${medaglia}</div>
-        <div class="classifica-nome">${_esc(p.nome)}</div>
+        <div class="classifica-nome">${_esc(p.nome)} <span class="classifica-apri">›</span></div>
         <div class="classifica-totale">${p.totale} pt</div>
         <div class="classifica-breakdown">
           <span title="Segno">⚽ ${b.segno || 0}</span>
+          <span title="Risultato esatto">🎯 ${b.risultatoEsatto || 0}</span>
           <span title="Bonus fine-fase">🌟 ${b.bonus || 0}</span>
-          <span title="Fascia indovinata">🎯 ${b.fascia || 0}</span>
+          <span title="Fascia indovinata">🏁 ${b.fascia || 0}</span>
           <span title="Posizione esatta">📍 ${b.posizione || 0}</span>
         </div>
       </div>`;
   }).join('');
 
   container.innerHTML = `<div class="classifica-list">${righe}</div>`;
+
+  container.querySelectorAll('.classifica-riga--click').forEach((riga) => {
+    const apri = () => apriProfilo(riga.dataset.uid, 'classifica');
+    riga.addEventListener('click', apri);
+    riga.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apri(); } });
+  });
 }
 
 function _esc(str) {
