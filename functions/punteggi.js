@@ -8,19 +8,19 @@
  */
 'use strict';
 
-const { classificaSquadre, fasceDaOrdine, classificaPrevista } = require('./ranking.js');
+const { classificaSquadre, fasceDaOrdine, classificaPrevista, risultatoPrevisto } = require('./ranking.js');
 
+// Tabella E della simulazione v2 (simulazione/sim_championsito_v2.py,
+// 2026-09-05): calibrata con popolazione di 20 pronosticatori e metriche di
+// suspense — ~63% dei punti matura giornata per giornata, il leader prima
+// dell'ultima giornata vince ~55% delle volte, ~12 su 20 ancora in corsa
+// prima di G8, merito (Spearman abilità↔classifica) 0.62.
 const TABELLA_PUNTI = {
   segno: 3,
-  // Risultato esatto per partita (aggiunto 2026-09-05, richiesto esplicitamente
-  // in aggiunta al segno). Valore PLACEHOLDER: 0 punti finché non si ricalibra
-  // la simulazione Monte Carlo con questa nuova categoria (vedi CLAUDE.md,
-  // "Domande ancora aperte"). Il calcolo è già attivo (breakdown.risultatoEsatto
-  // e meta.risultatiEsattiIndovinati), semplicemente non pesa ancora sul totale.
-  risultatoEsatto: 0,
-  bonusFineFase: 60, // capocannoniere / assistman / squadra più ammonita, ciascuno
-  fascia: { top8: 20, playoff: 10, eliminate: 6 },
-  posizioneEsatta: { top8: 70, playoff: 35, eliminate: 15 },
+  risultatoEsatto: 10, // IN AGGIUNTA al segno (esatto giusto = 3 + 10 = 13)
+  bonusFineFase: 30, // capocannoniere / assistman / squadra più ammonita, ciascuno
+  fascia: { top8: 15, playoff: 3, eliminate: 8 },
+  posizioneEsatta: { top8: 40, playoff: 12, eliminate: 12 },
 };
 
 function _zonaDi(squadraId, top8, playoff) {
@@ -40,7 +40,6 @@ function _zonaDi(squadraId, top8, playoff) {
  */
 function calcolaPunteggio(pron, risultati) {
   const segniPron = (pron && pron.segni) || {};
-  const risultatiEsattiPron = (pron && pron.risultatiEsatti) || {};
   const bonusPron = (pron && pron.bonus) || {};
 
   const giornate = (risultati && risultati.giornate) || [];
@@ -59,8 +58,12 @@ function calcolaPunteggio(pron, risultati) {
         puntiSegno += TABELLA_PUNTI.segno;
         segniIndovinati++;
       }
-      const esatto = risultatiEsattiPron[p.id];
-      if (esatto && Number(esatto.golCasa) === p.golCasa && Number(esatto.golTrasferta) === p.golTrasferta) {
+      // Risultato esatto: quello inserito, oppure — se l'utente ha dato solo
+      // il segno — la convenzione 1-0 / 1-1 / 0-1 (come scritto nel
+      // regolamento: quel punteggio "vale" come suo risultato a tutti gli
+      // effetti, classifica prevista E punti esatto). Vedi ranking.js.
+      const esatto = risultatoPrevisto(pron, p.id);
+      if (esatto && esatto.golCasa === p.golCasa && esatto.golTrasferta === p.golTrasferta) {
         puntiRisultatoEsatto += TABELLA_PUNTI.risultatoEsatto;
         risultatiEsattiIndovinati++;
       }
