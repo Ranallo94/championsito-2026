@@ -76,6 +76,15 @@ export async function getClassifica() {
   return snap.exists() ? (snap.data().partecipanti || []) : [];
 }
 
+/** Scrive classifica/snapshot dal browser (admin) — stesso formato della Cloud Function. */
+export async function setClassifica(partecipanti) {
+  await setDoc(doc(db(), 'classifica', 'snapshot'), {
+    partecipanti,
+    updatedAt: serverTimestamp(),
+    calcolataDa: 'admin-browser',
+  });
+}
+
 export function onClassificaSnapshot(callback) {
   return onSnapshot(doc(db(), 'classifica', 'snapshot'), (snap) => {
     callback(snap.exists() ? (snap.data().partecipanti || []) : []);

@@ -8,8 +8,9 @@
 import { httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js';
 import {
   getPartecipanti, updatePartecipante, deletePartecipante,
-  getRisultati, setRisultati, patchRisultati, getTuttiPronostici,
+  getRisultati, setRisultati, patchRisultati, getTuttiPronostici, setClassifica,
 } from './db.js';
+import { calcolaPunteggio, ordinaClassifica } from './punteggi.js';
 import { generaGiornate } from './calendario.js';
 import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
 import { showToast, openModal, closeModal } from './ui.js';
@@ -62,6 +63,41 @@ function _renderContatore(uid) {
 
 export async function initAdmin() {
   await _render();
+}
+
+/**
+ * Ricalcolo della classifica dal browser dell'admin: stessa logica della
+ * Cloud Function ricalcolaClassifica (functions/index.js), scritta sullo
+ * stesso documento classifica/snapshot. Chiamata dopo ogni salvataggio di
+ * risultato, bonus reale o congelamento, e dal bottone "Ricalcola".
+ */
+export async function ricalcolaClassificaLocale() {
+  const [risultati, pronostici, partecipanti] = await Promise.all([
+    getRisultati(), getTuttiPronostici(), getPartecipanti(),
+  ]);
+  const nomi = {};
+  const disabilitati = new Set();
+  partecipanti.forEach((p) => {
+    if (p.disabilitato) { disabilitati.add(p.id); return; }
+    nomi[p.id] = p.nickname || [p.nome, p.cognome].filter(Boolean).join(' ') || p.id;
+  });
+  const lista = pronostici
+    .filter((pr) => !disabilitati.has(pr.id) && !!nomi[pr.id])
+    .map((pr) => {
+      const { totale, breakdown, spareggio, meta } = calcolaPunteggio(pr, risultati);
+      return { id: pr.id, nome: nomi[pr.id], totale, breakdown, spareggio, meta };
+    });
+  await setClassifica(ordinaClassifica(lista));
+  return lista.length;
+}
+
+async function _ricalcolaSilenzioso() {
+  try {
+    await ricalcolaClassificaLocale();
+  } catch (e) {
+    console.error('[admin] ricalcolo classifica fallito:', e);
+    showToast('Risultato salvato, ma il ricalcolo della classifica è fallito: ' + e.message, 'warning', 5000);
+  }
 }
 
 async function _render() {
@@ -424,21 +460,26 @@ function _bindEventiRisultati(page) {
     };
     await setRisultati({ bonus });
     showToast('Bonus reali salvati', 'success');
+    await _ricalcolaSilenzioso();
   });
 
   page.querySelector('#btn-toggle-congelata')?.addEventListener('click', async () => {
     await setRisultati({ congelata: !_risultati.congelata });
     showToast(_risultati.congelata ? 'Classifica scongelata' : 'Classifica congelata!', 'success');
+    await _ricalcolaSilenzioso();
     await _render();
   });
 
   page.querySelector('#btn-ricalcola')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#btn-ricalcola');
+    btn.disabled = true;
     try {
-      const fn = httpsCallable(window._firebase.functions, 'ricongelaClassifica');
-      await fn();
-      showToast('Classifica ricalcolata', 'success');
+      const n = await ricalcolaClassificaLocale();
+      showToast(`Classifica ricalcolata (${n} partecipanti)`, 'success');
     } catch (e) {
-      showToast('Errore: ' + e.message, 'error');
+      showToast('Errore nel ricalcolo: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
     }
   });
 }
@@ -476,6 +517,7 @@ function _renderPartiteRisultati(page, giornate) {
       await patchRisultati({ giornate: nuoveGiornate });
       _risultati.giornate = nuoveGiornate;
       showToast('Risultato salvato', 'success');
+      await _ricalcolaSilenzioso();
     });
   });
 }
