@@ -12,7 +12,7 @@
  * file sullo stesso dataset. La tabella punti vive in ranking.js.
  */
 
-import { classificaSquadre, fasceDaOrdine, classificaPrevista, TABELLA_PUNTI } from './ranking.js';
+import { classificaSquadre, fasceDaOrdine, classificaPrevista, risultatoPrevisto, TABELLA_PUNTI } from './ranking.js';
 
 function _zonaDi(squadraId, top8, playoff) {
   if (top8.has(squadraId)) return 'top8';
@@ -22,7 +22,6 @@ function _zonaDi(squadraId, top8, playoff) {
 
 export function calcolaPunteggio(pron, risultati) {
   const segniPron = (pron && pron.segni) || {};
-  const risultatiEsattiPron = (pron && pron.risultatiEsatti) || {};
   const bonusPron = (pron && pron.bonus) || {};
 
   const giornate = (risultati && risultati.giornate) || [];
@@ -40,8 +39,9 @@ export function calcolaPunteggio(pron, risultati) {
         puntiSegno += TABELLA_PUNTI.segno;
         segniIndovinati++;
       }
-      const esatto = risultatiEsattiPron[p.id];
-      if (esatto && Number(esatto.golCasa) === p.golCasa && Number(esatto.golTrasferta) === p.golTrasferta) {
+      // Inserito, oppure convenzione 1-0 / 1-1 / 0-1 da solo segno (regolamento).
+      const esatto = risultatoPrevisto(pron, p.id);
+      if (esatto && esatto.golCasa === p.golCasa && esatto.golTrasferta === p.golTrasferta) {
         puntiRisultatoEsatto += TABELLA_PUNTI.risultatoEsatto;
         risultatiEsattiIndovinati++;
       }

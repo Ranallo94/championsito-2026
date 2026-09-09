@@ -72,8 +72,8 @@ function _render(page, uid, risultati, pron, classifica) {
       const segnoReale = _segno(p.golCasa, p.golTrasferta);
       const segnoPron = segni[p.id] || _segno(prev.golCasa, prev.golTrasferta);
       if (segnoPron === segnoReale) { segniOk++; punti += TABELLA_PUNTI.segno; }
-      const e = esatti[p.id];
-      if (e && Number(e.golCasa) === p.golCasa && Number(e.golTrasferta) === p.golTrasferta) {
+      // prev = inserito o convenzione 1-0/1-1/0-1: vale anche per l'esatto
+      if (prev.golCasa === p.golCasa && prev.golTrasferta === p.golTrasferta) {
         esattiOk++; punti += TABELLA_PUNTI.risultatoEsatto;
       }
     });
@@ -165,13 +165,13 @@ function _render(page, uid, risultati, pron, classifica) {
           ${(g.partite || []).map((p) => {
             const prev = risultatoPrevisto(pron, p.id);
             const e = esatti[p.id];
-            const testoPrev = e ? `${e.golCasa}-${e.golTrasferta}` : (segni[p.id] ? `segno ${segni[p.id]}` : '—');
+            const testoPrev = e ? `${e.golCasa}-${e.golTrasferta}` : (prev ? `${prev.golCasa}-${prev.golTrasferta} <small>(${segni[p.id]})</small>` : '—');
             const giocata = p.golCasa != null && p.golTrasferta != null;
             let esito = '', cls = '';
             if (giocata && prev) {
               const segnoPron = segni[p.id] || _segno(prev.golCasa, prev.golTrasferta);
               const okSegno = segnoPron === _segno(p.golCasa, p.golTrasferta);
-              const okEsatto = e && Number(e.golCasa) === p.golCasa && Number(e.golTrasferta) === p.golTrasferta;
+              const okEsatto = prev.golCasa === p.golCasa && prev.golTrasferta === p.golTrasferta;
               if (okEsatto) { esito = `+${TABELLA_PUNTI.segno + TABELLA_PUNTI.risultatoEsatto}`; cls = 'esatto'; }
               else if (okSegno) { esito = `+${TABELLA_PUNTI.segno}`; cls = 'segno'; }
               else { esito = '0'; cls = 'ko'; }

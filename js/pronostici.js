@@ -127,7 +127,7 @@ function _render() {
     <div id="tab-pron-classifica" class="tab-content">
       <div class="info-banner info-banner--blue">
         <span>📌</span>
-        <span>Classifica calcolata automaticamente dai tuoi pronostici, giornata dopo giornata: si aggiorna man mano che inserisci segni e risultati, fino all'ultima partita della fase a gironi. Le prime 8 vanno agli ottavi diretti, dalla 9ª alla 24ª giocano lo spareggio, dalla 25ª alla 36ª sono eliminate. Se per una partita dai solo il segno senza risultato, si assume 1-0 / 1-1 / 0-1.</span>
+        <span>Classifica calcolata automaticamente dai tuoi pronostici, giornata dopo giornata: si aggiorna man mano che inserisci segni e risultati, fino all'ultima partita della fase a gironi. Le prime 8 vanno agli ottavi diretti, dalla 9ª alla 24ª giocano lo spareggio, dalla 25ª alla 36ª sono eliminate. Se per una partita dai solo il segno senza risultato, vale 1-0 / 1-1 / 0-1 a tutti gli effetti (anche per i punti del risultato esatto).</span>
       </div>
       <p id="classifica-prevista-stato" class="field-hint"></p>
       <div id="classifica-prevista-list"></div>
