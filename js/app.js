@@ -158,9 +158,7 @@ async function mostraApp() {
   // Il proprio nome in alto apre la propria scheda profilo.
   headerUser.style.cursor = 'pointer';
   headerUser.title = 'La mia scheda';
-  headerUser.onclick = () => {
-    import('./profilo.js').then((m) => m.apriProfilo(STATE.utente.id, STATE.pagina === 'profilo' ? 'classifica' : STATE.pagina));
-  };
+  headerUser.onclick = _apriMioProfilo;
 
   if (STATE.utente.isAdmin) {
     document.getElementById('nav-admin').style.display = '';
@@ -169,7 +167,10 @@ async function mostraApp() {
   document.getElementById('btn-logout').addEventListener('click', async () => { await logout(); });
 
   document.querySelectorAll('.nav-item[data-page]').forEach((btn) => {
-    btn.addEventListener('click', () => navigaA(btn.dataset.page));
+    btn.addEventListener('click', () => {
+      if (btn.dataset.page === 'profilo') { _apriMioProfilo(); return; }
+      navigaA(btn.dataset.page);
+    });
   });
 
   document.addEventListener('click', (e) => {
@@ -215,6 +216,14 @@ function _esc(str) {
   const d = document.createElement('div');
   d.textContent = str || '';
   return d.innerHTML;
+}
+
+// Tab "Profilo" e nome in alto: aprono la propria scheda (profilo.js si
+// occupa poi di chiamare navigaA('profilo') e di mostrare la pagina).
+function _apriMioProfilo() {
+  if (!STATE.utente) return;
+  const da = STATE.pagina === 'profilo' ? 'classifica' : STATE.pagina;
+  import('./profilo.js').then((m) => m.apriProfilo(STATE.utente.id, da));
 }
 
 function _nascondiTutto() {

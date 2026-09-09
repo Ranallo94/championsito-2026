@@ -24,6 +24,11 @@ export async function apriProfilo(uid, daPagina = 'classifica') {
   if (!page) return;
   page.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Caricamento profilo…</p></div>';
   navigaA('profilo');
+  // Il tab "Profilo" nel menu resta evidenziato solo se è la PROPRIA scheda;
+  // guardando quella di un altro, nessun tab è attivo.
+  const me = getCurrentUser();
+  const mio = !!me && me.id === uid;
+  document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', mio && b.dataset.page === 'profilo'));
 
   try {
     const [risultati, pron, classifica] = await Promise.all([
