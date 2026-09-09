@@ -261,6 +261,56 @@ textarea.field-input { resize: vertical; }
 .classifica-totale { grid-area: totale; font-weight: 800; color: var(--magenta); }
 .classifica-breakdown { grid-area: breakdown; display: flex; gap: 12px; font-size: 12px; color: var(--text-faint); }
 
+.classifica-riga--click { cursor: pointer; transition: background .12s; }
+.classifica-riga--click:hover, .classifica-riga--click:focus-visible { background: rgba(2, 50, 255, 0.08); outline: none; }
+.classifica-apri { color: var(--text-faint); font-weight: 400; margin-left: 4px; }
+
+/* ── PROFILO ───────────────────────────────────────── */
+.profilo-testa { margin-bottom: 10px; }
+.profilo-breakdown { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-dim); margin: -6px 0 16px; }
+.profilo-breakdown strong { color: var(--text); }
+.profilo-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 12px 10px; }
+.kpi-val { font-size: 26px; font-weight: 800; line-height: 1; color: var(--magenta); font-variant-numeric: tabular-nums; }
+.kpi-lbl { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.3; }
+.kpi-lbl small { color: var(--text-faint); }
+.profilo-barre { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; align-items: end; }
+.pbar { text-align: center; }
+.pbar-track { height: 70px; display: flex; align-items: flex-end; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.pbar-fill { width: 100%; background: linear-gradient(180deg, var(--viola), var(--blu)); min-height: 2px; }
+.pbar-val { font-size: 12px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.pbar-lbl { font-size: 11px; color: var(--text-faint); }
+.profilo-bonus { display: grid; gap: 6px; }
+.profilo-bonus > div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; }
+.profilo-bonus .lbl { color: var(--text-faint); }
+.profilo-prevista { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; }
+.pp-riga { display: grid; grid-template-columns: 24px 1fr 28px; gap: 6px; font-size: 12px; padding: 3px 8px; border-radius: 4px; border-left: 3px solid transparent; }
+.pp-riga--top8 { border-left-color: var(--magenta); background: rgba(255, 81, 162, 0.06); }
+.pp-riga--playoff { border-left-color: var(--blu); background: rgba(2, 50, 255, 0.05); }
+.pp-riga--eliminate { border-left-color: var(--grigio); opacity: .8; }
+.pp-pos { font-weight: 800; text-align: center; }
+.pp-pt { text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.profilo-giornata { margin-bottom: 18px; }
+.profilo-giornata .reg-section-title { display: flex; justify-content: space-between; align-items: baseline; }
+.profilo-giornata .reg-section-title small { font-weight: 500; color: var(--text-faint); font-size: 12px; margin-left: 6px; }
+.pg-pt { font-size: 13px; color: var(--magenta); }
+.pd-riga { display: grid; grid-template-columns: 1fr 64px 44px 1fr 40px; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; border-left: 3px solid transparent; }
+.pd-sq { font-weight: 600; }
+.pd-sq--t { text-align: right; }
+.pd-prev { text-align: center; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pd-reale { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pd-pt { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+.pd-riga--esatto { border-left-color: var(--magenta); background: rgba(255, 81, 162, 0.08); }
+.pd-riga--esatto .pd-pt { color: var(--magenta); }
+.pd-riga--segno { border-left-color: var(--viola); background: rgba(154, 0, 255, 0.06); }
+.pd-riga--segno .pd-pt { color: var(--viola); }
+.pd-riga--ko .pd-pt { color: var(--text-faint); }
+@media (max-width: 560px) {
+  .profilo-kpi { grid-template-columns: 1fr 1fr; }
+  .profilo-prevista { grid-template-columns: 1fr; }
+  .pd-riga { grid-template-columns: 1fr 56px 40px 1fr 34px; font-size: 12px; }
+}
+
 /* ── PRONOSTICI: giornate / segno ──────────────────── */
 .giornata-selector { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px; }
 .giornata-btn {

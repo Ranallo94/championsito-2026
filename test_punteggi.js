@@ -66,22 +66,44 @@ const risultati = {
 const segni = {};
 partite.forEach((p, i) => { segni[p.id] = i < 12 ? '1' : 'X'; });
 
-// ── Pronostico: classifica finale ──────────────────────
-// Copia esatta dell'ordine reale, poi si scambiano due coppie per testare
-// il punteggio parziale:
-//  - scambio nel top8 (posizioni 0/1): stessa fascia, posizione sbagliata
-//    per ENTRAMBE le squadre coinvolte -> fascia doppia, posizione zero per loro due.
-//  - scambio fra ultimo del playoff (indice 23) e primo dell'eliminate (indice 24):
-//    zona sbagliata per entrambe.
-const classificaFinale = [...ordineRealeIds];
-[classificaFinale[0], classificaFinale[1]] = [classificaFinale[1], classificaFinale[0]];
-[classificaFinale[23], classificaFinale[24]] = [classificaFinale[24], classificaFinale[23]];
+// ── Pronostico: risultati esatti -> classifica prevista DERIVATA ────
+// Dal 2026-09-05 la classifica prevista non è più ordinata a mano: viene
+// ricavata dai risultati pronosticati (functions/ranking.js, classificaPrevista).
+// Qui si pronosticano esattamente i risultati reali per tutte le partite,
+// TRANNE le ultime due, dove si scambiano i margini:
+//   p17 reale sq17 17-0 sq20  -> pronosticato 18-0
+//   p18 reale sq18 18-0 sq19  -> pronosticato 17-0
+// Effetto sulla classifica prevista rispetto a quella reale:
+//   - sq17 e sq18 si scambiano le posizioni 1ª/2ª (entrambe top8: fascia
+//     giusta, posizione sbagliata per entrambe)
+//   - sq19 e sq20 si scambiano le posizioni 35ª/36ª (entrambe eliminate:
+//     fascia giusta, posizione sbagliata per entrambe)
+// Le altre 32 squadre restano identiche -> fascia 36/36, posizione 32/36.
+// Nota: il segno di p17/p18 resta '1' sia pronosticato (segni sopra: solo le
+// prime 12 sono '1') -> per queste due il segno pronosticato è 'X' (sbagliato)
+// ma il risultato esatto sovrascrive la convenzione da segno, quindi la
+// classifica prevista le vede comunque come vittorie casalinghe.
+const risultatiEsatti = {};
+partite.forEach((p, i) => {
+  if (i === 16) risultatiEsatti[p.id] = { golCasa: 18, golTrasferta: 0 }; // p17
+  else if (i === 17) risultatiEsatti[p.id] = { golCasa: 17, golTrasferta: 0 }; // p18
+  else risultatiEsatti[p.id] = { golCasa: p.golCasa, golTrasferta: p.golTrasferta };
+});
 
 // ── Pronostico: bonus ───────────────────────────────────
 // 2 indovinati su 3 (cartellini sbagliato).
 const bonus = { capocannoniere: 'Mario Rossi', assistman: 'Luigi Bianchi', cartellini: id(9) };
 
-const pron = { segni, classificaFinale, bonus };
+const pron = { segni, risultatiEsatti, bonus };
+
+// Verifica diretta della classifica prevista derivata
+const { classificaPrevista } = require(path.join(__dirname, 'functions', 'ranking.js'));
+const ordinePrevistoIds = classificaPrevista(pron, squadre, giornate).map((s) => s.squadraId);
+const attesoPrevisto = [...ordineRealeIds];
+[attesoPrevisto[0], attesoPrevisto[1]] = [attesoPrevisto[1], attesoPrevisto[0]];
+[attesoPrevisto[34], attesoPrevisto[35]] = [attesoPrevisto[35], attesoPrevisto[34]];
+assert.deepStrictEqual(ordinePrevistoIds, attesoPrevisto, 'classificaPrevista non deriva l\'ordine atteso dai risultati pronosticati');
+console.log('✅ classificaPrevista: derivata dai risultati pronosticati, con gli scambi 1ª/2ª e 35ª/36ª attesi');
 
 const risultato = calcolaPunteggio(pron, risultati);
 
@@ -89,24 +111,14 @@ const risultato = calcolaPunteggio(pron, risultati);
 const attesoSegno = 12 * TABELLA_PUNTI.segno; // 12 * 3 = 36
 const attesoBonus = 2 * TABELLA_PUNTI.bonusFineFase; // 2 * 60 = 120
 
-// Fascia/posizione: 34 squadre su 36 restano nella zona e posizione corrette
-// (34 posizioni esatte, tutte nella propria fascia originale), le 4 coinvolte
-// nei due scambi (indici 0,1,23,24) sbagliano la posizione esatta ma:
-//  - indici 0/1 restano comunque nella zona top8 corretta (scambio interno)
-//  - indici 23/24 finiscono nella zona sbagliata (scambio fra fasce diverse)
-// Quindi: fascia indovinata per 34 (esatte) + 2 (0/1, zona giusta) = 36 su 36;
-// posizione esatta per 32 (36 - 4 coinvolte nei due scambi).
+// Fascia: tutte e 36 nella zona giusta. Posizione esatta: 32 su 36 (le 4
+// squadre scambiate — indici 0,1,34,35 — sbagliano la posizione).
 let attesoFascia = 0, attesoPosizione = 0;
 ordineRealeIds.forEach((sqId, i) => {
   const zona = i < 8 ? 'top8' : (i < 24 ? 'playoff' : 'eliminate');
-  const scambiato01 = (i === 0 || i === 1);
-  const scambiato2324 = (i === 23 || i === 24);
-  if (scambiato2324) {
-    // zona sbagliata -> niente fascia, niente posizione
-    return;
-  }
+  const scambiata = (i === 0 || i === 1 || i === 34 || i === 35);
   attesoFascia += TABELLA_PUNTI.fascia[zona];
-  if (!scambiato01) attesoPosizione += TABELLA_PUNTI.posizioneEsatta[zona];
+  if (!scambiata) attesoPosizione += TABELLA_PUNTI.posizioneEsatta[zona];
 });
 
 assert.strictEqual(risultato.breakdown.segno, attesoSegno, `segno atteso ${attesoSegno}, ottenuto ${risultato.breakdown.segno}`);
@@ -114,7 +126,8 @@ assert.strictEqual(risultato.breakdown.bonus, attesoBonus, `bonus atteso ${attes
 assert.strictEqual(risultato.breakdown.fascia, attesoFascia, `fascia attesa ${attesoFascia}, ottenuta ${risultato.breakdown.fascia}`);
 assert.strictEqual(risultato.breakdown.posizione, attesoPosizione, `posizione attesa ${attesoPosizione}, ottenuta ${risultato.breakdown.posizione}`);
 
-const attesoTotale = attesoSegno + attesoBonus + attesoFascia + attesoPosizione;
+const attesoEsatto = 16 * TABELLA_PUNTI.risultatoEsatto; // 16 risultati esatti giusti su 18 (vedi sotto)
+const attesoTotale = attesoSegno + attesoEsatto + attesoBonus + attesoFascia + attesoPosizione;
 assert.strictEqual(risultato.totale, attesoTotale, `totale atteso ${attesoTotale}, ottenuto ${risultato.totale}`);
 
 console.log('✅ calcolaPunteggio: segno, bonus, fascia, posizione e totale tutti corretti');
@@ -128,4 +141,37 @@ assert.strictEqual(risultatoNonCongelato.breakdown.posizione, 0, 'senza congelam
 assert.strictEqual(risultatoNonCongelato.breakdown.segno, attesoSegno, 'il segno deve contare comunque, congelata o no');
 console.log('✅ gate "congelata": fascia/posizione a 0 se la classifica non è ancora congelata');
 
-console.log('\nTutti i test sono passati.');
+// ── Verifica "risultato esatto" (nuova categoria, 2026-09-05) ──
+// Nel pron sopra i risultati esatti coincidono con quelli reali per 16 partite
+// su 18 (p17 e p18 hanno i margini scambiati). Il conteggio non deve
+// dipendere dal segno (per p17/p18 il segno pronosticato è 'X', sbagliato).
+assert.strictEqual(risultato.meta.risultatiEsattiIndovinati, 16, `attesi 16 risultati esatti indovinati, ottenuti ${risultato.meta.risultatiEsattiIndovinati}`);
+assert.strictEqual(risultato.breakdown.risultatoEsatto, 16 * TABELLA_PUNTI.risultatoEsatto, 'breakdown.risultatoEsatto non coerente con TABELLA_PUNTI.risultatoEsatto');
+console.log(`✅ risultato esatto: ${risultato.meta.risultatiEsattiIndovinati} indovinati su 18 → ${risultato.breakdown.risultatoEsatto} punti, calcolato indipendentemente dal segno`);
+
+// ── Convenzione "solo segno" nella classifica prevista ──
+// Pronostico con soli segni (niente risultato esatto): '1' -> 1-0, 'X' -> 1-1,
+// '2' -> 0-1. Le partite senza alcun pronostico non contano.
+const pronSoloSegni = { segni: { g1_p1: '1', g1_p2: 'X', g1_p3: '2' } };
+const ordSoloSegni = classificaPrevista(pronSoloSegni, squadre, giornate);
+const st = {}; ordSoloSegni.forEach((s) => { st[s.squadraId] = s; });
+assert.deepStrictEqual([st[id(1)].punti, st[id(1)].gf, st[id(1)].gs, st[id(1)].giocate], [3, 1, 0, 1], "segno '1' deve valere 1-0");
+assert.deepStrictEqual([st[id(2)].punti, st[id(2)].gf, st[id(2)].gs], [1, 1, 1], "segno 'X' deve valere 1-1");
+assert.deepStrictEqual([st[id(3)].punti, st[id(34)].punti, st[id(34)].gf], [0, 3, 1], "segno '2' deve valere 0-1");
+assert.strictEqual(st[id(4)].giocate, 0, 'partita non pronosticata non deve contare');
+console.log('✅ classificaPrevista: convenzione da solo segno (1-0 / 1-1 / 0-1) e partite non pronosticate ignorate');
+
+// ── Sincronia fra functions/ranking.js (CJS) e js/ranking.js (ESM) ──
+(async () => {
+  const { pathToFileURL } = require('url');
+  const esm = await import(pathToFileURL(path.join(__dirname, 'js', 'ranking.js')).href);
+  const a = classificaPrevista(pron, squadre, giornate);
+  const b = esm.classificaPrevista(pron, squadre, giornate);
+  assert.deepStrictEqual(b, a, 'js/ranking.js e functions/ranking.js producono classifiche previste diverse');
+  const ra = classificaSquadre(squadre, giornate);
+  const rb = esm.classificaSquadre(squadre, giornate);
+  assert.deepStrictEqual(rb, ra, 'js/ranking.js e functions/ranking.js producono classifiche reali diverse');
+  assert.deepStrictEqual(esm.TABELLA_PUNTI, TABELLA_PUNTI, 'js/ranking.js TABELLA_PUNTI diversa da functions/punteggi.js');
+  console.log('✅ js/ranking.js (browser) e functions/ranking.js (Cloud Functions) sono allineati, tabella punti inclusa');
+  console.log('\nTutti i test sono passati.');
+})().catch((e) => { console.error(e); process.exit(1); });
