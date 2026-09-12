@@ -6,6 +6,7 @@
 import { initAuth, registra, getCurrentUser, onAuthChange, logout } from './auth.js';
 import { initClassifica, cleanupClassifica } from './classifica.js';
 import { initPronostici, cleanupPronostici } from './pronostici.js';
+import { initRisultati, cleanupRisultati } from './risultati.js';
 import { initAdmin } from './admin.js';
 
 export const STATE = {
@@ -45,6 +46,7 @@ export async function initApp() {
     }
     if (!utente) {
       cleanupPronostici();
+      cleanupRisultati();
       cleanupClassifica();
       STATE._appInizializzata = false;
       STATE.utente = null;
@@ -193,6 +195,7 @@ async function mostraApp() {
     try {
       await initClassifica();
       await initPronostici();
+      await initRisultati();
       if (STATE.utente.isAdmin) await initAdmin();
     } catch (e) {
       // Prima un errore qui interrompeva mostraApp() a metà e navigaA()

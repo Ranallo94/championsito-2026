@@ -31,8 +31,16 @@ export function selectGiocatori(id, valore, squadre, ruoli, disabled) {
       return `<option value="${_esc(v)}" ${v === valore ? 'selected' : ''}>${_esc(g.n)} (${g.p})</option>`;
     }).join('')}</optgroup>`;
   }).join('');
+  // Se il valore salvato non è fra le opzioni (rosa aggiornata, giocatore
+  // trasferito, nome scritto diversamente), senza questa opzione di riserva
+  // la select si presenterebbe vuota e il primo salvataggio cancellerebbe in
+  // silenzio la scelta già fatta. Meglio mostrarla, segnalata.
+  const presente = !valore || gruppi.includes(`value="${_esc(valore)}"`);
+  const riserva = presente ? '' :
+    `<option value="${_esc(valore)}" selected>${_esc(valore.split('|').pop())} (non più in rosa)</option>`;
+
   return `<select id="${id}" class="field-input" ${disabled ? 'disabled' : ''}>
-    <option value="">— scegli un giocatore —</option>${gruppi}</select>`;
+    <option value="">— scegli un giocatore —</option>${riserva}${gruppi}</select>`;
 }
 
 /** "sqXX|Nome" -> "Nome (Squadra)" per la visualizzazione. */

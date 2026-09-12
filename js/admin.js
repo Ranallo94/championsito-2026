@@ -14,13 +14,20 @@ import { calcolaPunteggio, ordinaClassifica } from './punteggi.js';
 import { generaGiornate } from './calendario.js';
 import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
 import { showToast, openModal, closeModal } from './ui.js';
-import { selectGiocatori } from './giocatori.js';
+import { selectGiocatori, etichettaGiocatore } from './giocatori.js';
+import { classificaCartellini, classificaGiocatori, CLASSIFICA_MAX_RIGHE } from './risultati.js';
 import { getCurrentUser } from './auth.js';
 
 let _risultati = null;
 let _pronosticiPerUid = {};
 let _giornataAttiva = 1;
 let _tabAttiva = 'tab-admin-utenti';
+
+// Bozza in lavorazione delle classifiche bonus (scheda "Statistiche bonus"):
+// { marcatori: [{g,v}], assist: [{g,v}], cartellini: {sqId: {gialli,rossi}} }.
+// Viene ricaricata da risultati/ufficiali a ogni _render() e riscritta solo
+// al click su "Salva classifiche bonus".
+let _clfBozza = null;
 
 /**
  * Contatore pronostici salvati di un utente: per giornata (partite con
@@ -133,6 +140,7 @@ async function _render() {
       <button class="tab ${_tabAttiva === 'tab-admin-utenti' ? 'active' : ''}" data-tab="tab-admin-utenti">Utenti</button>
       <button class="tab ${_tabAttiva === 'tab-admin-squadre' ? 'active' : ''}" data-tab="tab-admin-squadre">Squadre &amp; calendario</button>
       <button class="tab ${_tabAttiva === 'tab-admin-risultati' ? 'active' : ''}" data-tab="tab-admin-risultati">Risultati</button>
+      <button class="tab ${_tabAttiva === 'tab-admin-statistiche' ? 'active' : ''}" data-tab="tab-admin-statistiche">📊 Statistiche bonus</button>
       <button class="tab ${_tabAttiva === 'tab-admin-config' ? 'active' : ''}" data-tab="tab-admin-config">Configurazione</button>
     </div>
 
@@ -203,6 +211,10 @@ async function _render() {
       <button class="btn btn-secondary" id="btn-ricalcola" style="margin-left:8px">🔄 Ricalcola classifica ora</button>
     </div>
 
+    <div id="tab-admin-statistiche" class="tab-content ${_tabAttiva === 'tab-admin-statistiche' ? 'active' : ''}">
+      ${_renderStatistiche()}
+    </div>
+
     <div id="tab-admin-config" class="tab-content ${_tabAttiva === 'tab-admin-config' ? 'active' : ''}">
       <h3 class="reg-section-title">Pronostici per giornata</h3>
       <p class="field-hint" style="margin-bottom:10px">Chiudi una giornata quando iniziano le sue partite: gli utenti non potranno più modificare segni e risultati di quella giornata, le altre restano aperte.</p>
@@ -224,6 +236,7 @@ async function _render() {
   _bindEventiUtenti(page);
   _bindEventiSquadre(page);
   _bindEventiRisultati(page);
+  _bindEventiStatistiche(page);
   _bindEventiConfig(page);
 }
 
@@ -519,6 +532,234 @@ function _renderPartiteRisultati(page, giornate) {
       showToast('Risultato salvato', 'success');
       await _ricalcolaSilenzioso();
     });
+  });
+}
+
+// ── STATISTICHE BONUS (marcatori / assist / cartellini) ───
+// Compilano risultati/ufficiali.classifiche, che il tab pubblico "Risultati"
+// mostra in sola lettura (js/risultati.js). Sono classifiche informative:
+// NON incidono sul punteggio, che dipende solo dai bonus reali qui sopra.
+// I cartellini si inseriscono come gialli + rossi per squadra: totale e
+// ordine (a parità di totale, più rossi) si calcolano da soli, esattamente
+// come la regola del bonus di fase.
+
+const TIPI_GIOCATORE = {
+  marcatori: { emoji: '⚽', label: 'Marcatori', unita: 'gol' },
+  assist: { emoji: '🅰️', label: 'Assistman', unita: 'assist' },
+};
+
+function _initBozzaClassifiche() {
+  const clf = _risultati.classifiche || {};
+  const cartellini = {};
+  (_risultati.squadre || []).forEach((s) => { cartellini[s.id] = { gialli: 0, rossi: 0 }; });
+  (clf.cartellini || []).forEach((r) => {
+    if (r && r.sq && cartellini[r.sq]) {
+      cartellini[r.sq] = { gialli: Number(r.gialli) || 0, rossi: Number(r.rossi) || 0 };
+    }
+  });
+  _clfBozza = {
+    marcatori: (clf.marcatori || []).map((r) => ({ g: r.g || '', v: Number(r.v) || 0 })),
+    assist: (clf.assist || []).map((r) => ({ g: r.g || '', v: Number(r.v) || 0 })),
+    cartellini,
+  };
+  // Almeno una riga vuota per partire, se non c'è ancora nulla.
+  ['marcatori', 'assist'].forEach((t) => { if (!_clfBozza[t].length) _clfBozza[t].push({ g: '', v: 0 }); });
+}
+
+function _renderStatistiche() {
+  _initBozzaClassifiche();
+  if (!(_risultati.squadre || []).length) {
+    return '<p class="field-hint">Carica prima il calendario dal tab "Squadre &amp; calendario".</p>';
+  }
+  return `
+    <div class="info-banner info-banner--blue">
+      <span>📊</span>
+      <span>Da qui compili le tre <strong>classifiche bonus</strong> che i partecipanti vedono nel tab ⚽ Risultati: marcatori, assistman e cartellini. Sono informative e <strong>non danno punti</strong> — i punti dei bonus dipendono solo dal "Bonus reale" scelto nel tab Risultati a fase conclusa. Marcatori e assist sono mostrati fino alla posizione ${CLASSIFICA_MAX_RIGHE}.</span>
+    </div>
+
+    ${['marcatori', 'assist'].map((tipo) => `
+      <h3 class="reg-section-title">${TIPI_GIOCATORE[tipo].emoji} ${TIPI_GIOCATORE[tipo].label}</h3>
+      <p class="field-hint" style="margin-bottom:8px">Aggiungi un giocatore per riga con il suo numero di ${TIPI_GIOCATORE[tipo].unita}. L'ordine in classifica si calcola da solo.</p>
+      <div class="stat-rows" id="stat-rows-${tipo}"></div>
+      <button class="btn btn-secondary btn-sm stat-add" data-tipo="${tipo}">+ Aggiungi riga</button>
+    `).join('')}
+
+    <h3 class="reg-section-title" style="margin-top:26px">🟨 Cartellini per squadra</h3>
+    <p class="field-hint" style="margin-bottom:8px">Gialli e rossi della fase a campionato, squadra per squadra (fonte: statistiche UEFA). Totale e ordinamento sono automatici: a parità di totale conta chi ha più rossi.</p>
+    <div class="stat-cards-grid" id="stat-rows-cartellini"></div>
+
+    <div class="stat-anteprima" id="stat-anteprima"></div>
+
+    <button class="btn btn-primary" id="btn-salva-classifiche" style="margin-top:18px">Salva classifiche bonus</button>
+  `;
+}
+
+function _renderRigheGiocatori(page, tipo) {
+  const el = page.querySelector(`#stat-rows-${tipo}`);
+  if (!el) return;
+  const righe = _clfBozza[tipo];
+  el.innerHTML = righe.map((r, i) => `
+    <div class="stat-row" data-tipo="${tipo}" data-i="${i}">
+      <span class="stat-row-pos">${i + 1}</span>
+      ${selectGiocatori(`stat-${tipo}-g-${i}`, r.g, _risultati.squadre, ['D', 'M', 'F'], false)}
+      <input type="number" min="0" class="stat-row-val" id="stat-${tipo}-v-${i}" value="${r.v || ''}" placeholder="0" title="${TIPI_GIOCATORE[tipo].unita}">
+      <button class="btn btn-secondary btn-sm stat-row-del" title="Elimina riga">✕</button>
+    </div>`).join('');
+
+  el.querySelectorAll('.stat-row').forEach((riga) => {
+    const i = Number(riga.dataset.i);
+    riga.querySelector('select').addEventListener('change', (e) => {
+      _clfBozza[tipo][i].g = e.target.value;
+      _renderAnteprimaStat(page);
+    });
+    riga.querySelector('.stat-row-val').addEventListener('input', (e) => {
+      _clfBozza[tipo][i].v = Number(e.target.value) || 0;
+      _renderAnteprimaStat(page);
+    });
+    riga.querySelector('.stat-row-del').addEventListener('click', () => {
+      _clfBozza[tipo].splice(i, 1);
+      if (!_clfBozza[tipo].length) _clfBozza[tipo].push({ g: '', v: 0 });
+      _renderRigheGiocatori(page, tipo);
+      _renderAnteprimaStat(page);
+    });
+  });
+}
+
+function _renderRigheCartellini(page) {
+  const el = page.querySelector('#stat-rows-cartellini');
+  if (!el) return;
+  el.innerHTML = (_risultati.squadre || []).map((s) => {
+    const c = _clfBozza.cartellini[s.id] || { gialli: 0, rossi: 0 };
+    return `
+      <div class="stat-card-squadra" data-sq="${s.id}">
+        <span class="stat-card-nome">${_esc(s.nome)}</span>
+        <label class="stat-card-campo" title="Cartellini gialli">
+          <span class="card-giallo"></span>
+          <input type="number" min="0" class="stat-row-val stat-gialli" value="${c.gialli || ''}" placeholder="0">
+        </label>
+        <label class="stat-card-campo" title="Cartellini rossi">
+          <span class="card-rosso"></span>
+          <input type="number" min="0" class="stat-row-val stat-rossi" value="${c.rossi || ''}" placeholder="0">
+        </label>
+        <span class="stat-card-tot" title="Totale">${(c.gialli || 0) + (c.rossi || 0)}</span>
+      </div>`;
+  }).join('');
+
+  el.querySelectorAll('.stat-card-squadra').forEach((card) => {
+    const sq = card.dataset.sq;
+    const aggiorna = () => {
+      _clfBozza.cartellini[sq] = {
+        gialli: Number(card.querySelector('.stat-gialli').value) || 0,
+        rossi: Number(card.querySelector('.stat-rossi').value) || 0,
+      };
+      card.querySelector('.stat-card-tot').textContent =
+        _clfBozza.cartellini[sq].gialli + _clfBozza.cartellini[sq].rossi;
+      _renderAnteprimaStat(page);
+    };
+    card.querySelector('.stat-gialli').addEventListener('input', aggiorna);
+    card.querySelector('.stat-rossi').addEventListener('input', aggiorna);
+  });
+}
+
+/** Anteprima live di come verranno le tre classifiche + leader cartellini. */
+function _renderAnteprimaStat(page) {
+  const el = page.querySelector('#stat-anteprima');
+  if (!el || !_clfBozza) return;
+  const squadre = _risultati.squadre || [];
+  const nomiSquadra = {};
+  squadre.forEach((s) => { nomiSquadra[s.id] = s.nome; });
+
+  const marcatori = classificaGiocatori(_clfBozza.marcatori).slice(0, CLASSIFICA_MAX_RIGHE);
+  const assist = classificaGiocatori(_clfBozza.assist).slice(0, CLASSIFICA_MAX_RIGHE);
+  const cartellini = classificaCartellini(
+    Object.entries(_clfBozza.cartellini).map(([sq, c]) => ({ sq, ...c })),
+  );
+
+  const leader = cartellini[0];
+  const pariMerito = leader && cartellini[1]
+    && cartellini[1].totale === leader.totale && cartellini[1].rossi === leader.rossi;
+
+  const lista = (titolo, righe, fmt) => (righe.length ? `
+    <div class="clf-card">
+      <h4 class="clf-title">${titolo}</h4>
+      <ol class="clf-list">
+        ${righe.map((r, i) => `<li class="clf-row${i < 3 ? ` clf-row--top clf-row--${i + 1}` : ''}">
+          <span class="clf-pos">${i + 1}</span>${fmt(r)}</li>`).join('')}
+      </ol>
+    </div>` : '');
+
+  el.innerHTML = `
+    <h3 class="reg-section-title" style="margin-top:26px">🔮 Anteprima (si aggiorna mentre digiti)</h3>
+    <div class="clf-grid">
+      ${lista('⚽ Marcatori', marcatori, (r) => `<span class="clf-name">${_esc(etichettaGiocatore(r.g, squadre))}</span><span class="clf-val">${r.v}</span>`)}
+      ${lista('🅰️ Assistman', assist, (r) => `<span class="clf-name">${_esc(etichettaGiocatore(r.g, squadre))}</span><span class="clf-val">${r.v}</span>`)}
+      ${lista('🟨 Cartellini', cartellini.slice(0, CLASSIFICA_MAX_RIGHE), (r) => `<span class="clf-name">${_esc(nomiSquadra[r.sq] || r.sq)}</span><span class="clf-cards"><span class="card-giallo">${r.gialli}</span><span class="card-rosso">${r.rossi}</span></span><span class="clf-val">${r.totale}</span>`)}
+    </div>
+    ${leader ? `
+      <div class="info-banner ${pariMerito ? 'info-banner--yellow' : 'info-banner--green'}" style="margin-top:12px">
+        <span>${pariMerito ? '⚠️' : '🏆'}</span>
+        <span>
+          Squadra con più cartellini: <strong>${_esc(nomiSquadra[leader.sq] || leader.sq)}</strong>
+          (${leader.totale} totali — ${leader.gialli} gialli, ${leader.rossi} rossi).
+          ${pariMerito ? 'Attenzione: c\'è un pari merito perfetto (stesso totale e stessi rossi), decidi tu il criterio.' : ''}
+          ${_risultati.bonus?.cartellini === leader.sq
+            ? ' È già impostata come bonus reale.'
+            : ` <button class="btn btn-sm btn-primary" id="btn-usa-leader-cartellini" data-sq="${leader.sq}">Imposta come bonus reale</button>`}
+        </span>
+      </div>` : ''}
+  `;
+
+  el.querySelector('#btn-usa-leader-cartellini')?.addEventListener('click', async () => {
+    const sq = el.querySelector('#btn-usa-leader-cartellini').dataset.sq;
+    await setRisultati({ bonus: { ...(_risultati.bonus || {}), cartellini: sq } });
+    _risultati.bonus = { ...(_risultati.bonus || {}), cartellini: sq };
+    showToast('Bonus reale "cartellini" aggiornato', 'success');
+    await _ricalcolaSilenzioso();
+    _renderAnteprimaStat(page);
+  });
+}
+
+function _bindEventiStatistiche(page) {
+  if (!_clfBozza || !(_risultati.squadre || []).length) return;
+  ['marcatori', 'assist'].forEach((tipo) => _renderRigheGiocatori(page, tipo));
+  _renderRigheCartellini(page);
+  _renderAnteprimaStat(page);
+
+  page.querySelectorAll('.stat-add').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tipo = btn.dataset.tipo;
+      _clfBozza[tipo].push({ g: '', v: 0 });
+      _renderRigheGiocatori(page, tipo);
+    });
+  });
+
+  page.querySelector('#btn-salva-classifiche')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#btn-salva-classifiche');
+    btn.disabled = true;
+    try {
+      // Si salvano solo le righe compilate: niente giocatori vuoti o a zero
+      // nel documento pubblico.
+      const pulisci = (righe) => righe
+        .filter((r) => r.g && (Number(r.v) || 0) > 0)
+        .map((r) => ({ g: r.g, v: Number(r.v) || 0 }))
+        .sort((a, b) => b.v - a.v);
+      const cartellini = Object.entries(_clfBozza.cartellini)
+        .map(([sq, c]) => ({ sq, gialli: Number(c.gialli) || 0, rossi: Number(c.rossi) || 0 }))
+        .filter((r) => r.gialli > 0 || r.rossi > 0);
+
+      const classifiche = {
+        marcatori: pulisci(_clfBozza.marcatori),
+        assist: pulisci(_clfBozza.assist),
+        cartellini,
+      };
+      await setRisultati({ classifiche });
+      _risultati.classifiche = classifiche;
+      showToast('Classifiche bonus salvate — visibili nel tab Risultati', 'success');
+    } catch (e) {
+      showToast('Errore nel salvataggio: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
   });
 }
 
