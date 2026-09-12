@@ -14,7 +14,7 @@ import { calcolaPunteggio, ordinaClassifica } from './punteggi.js';
 import { generaGiornate } from './calendario.js';
 import { SQUADRE_UFFICIALI, GIORNATE_UFFICIALI } from './calendario-ufficiale.js';
 import { showToast, openModal, closeModal } from './ui.js';
-import { selectGiocatori, etichettaGiocatore } from './giocatori.js';
+import { pickerGiocatore, bindPickerGiocatori, etichettaGiocatore } from './giocatori.js';
 import { classificaCartellini, classificaGiocatori, CLASSIFICA_MAX_RIGHE } from './risultati.js';
 import { getCurrentUser } from './auth.js';
 
@@ -182,11 +182,11 @@ async function _render() {
       <h3 class="reg-section-title" style="margin-top:24px">Bonus reali di fase</h3>
       <div class="field-group">
         <label class="field-label">Capocannoniere</label>
-        ${selectGiocatori('admin-bonus-capocannoniere', _risultati.bonus?.capocannoniere, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
+        ${pickerGiocatore('admin-bonus-capocannoniere', _risultati.bonus?.capocannoniere, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
       </div>
       <div class="field-group">
         <label class="field-label">Assistman</label>
-        ${selectGiocatori('admin-bonus-assistman', _risultati.bonus?.assistman, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
+        ${pickerGiocatore('admin-bonus-assistman', _risultati.bonus?.assistman, _risultati.squadre, ['G', 'D', 'M', 'F'], false)}
       </div>
       <div class="field-group">
         <label class="field-label">Squadra con più cartellini (gialli + rossi)</label>
@@ -464,6 +464,7 @@ function _bindEventiRisultati(page) {
     });
   }
   _renderPartiteRisultati(page, giornate);
+  bindPickerGiocatori(page, _risultati.squadre);
 
   page.querySelector('#btn-salva-bonus-reali')?.addEventListener('click', async () => {
     const bonus = {
@@ -601,14 +602,16 @@ function _renderRigheGiocatori(page, tipo) {
   el.innerHTML = righe.map((r, i) => `
     <div class="stat-row" data-tipo="${tipo}" data-i="${i}">
       <span class="stat-row-pos">${i + 1}</span>
-      ${selectGiocatori(`stat-${tipo}-g-${i}`, r.g, _risultati.squadre, ['D', 'M', 'F'], false)}
+      ${pickerGiocatore(`stat-${tipo}-g-${i}`, r.g, _risultati.squadre, ['D', 'M', 'F'], false)}
       <input type="number" min="0" class="stat-row-val" id="stat-${tipo}-v-${i}" value="${r.v || ''}" placeholder="0" title="${TIPI_GIOCATORE[tipo].unita}">
       <button class="btn btn-secondary btn-sm stat-row-del" title="Elimina riga">✕</button>
     </div>`).join('');
 
+  bindPickerGiocatori(el, _risultati.squadre);
+
   el.querySelectorAll('.stat-row').forEach((riga) => {
     const i = Number(riga.dataset.i);
-    riga.querySelector('select').addEventListener('change', (e) => {
+    riga.querySelector('input[type="hidden"]').addEventListener('change', (e) => {
       _clfBozza[tipo][i].g = e.target.value;
       _renderAnteprimaStat(page);
     });

@@ -8,7 +8,7 @@ import { getPronostici, savePronostici, onRisultatiSnapshot } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { showToast, showEmpty } from './ui.js';
 import { classificaPrevista, giornatePreviste } from './ranking.js';
-import { selectGiocatori } from './giocatori.js';
+import { pickerGiocatore, bindPickerGiocatori } from './giocatori.js';
 
 let _risultati = null;
 let _pron = null;
@@ -143,12 +143,12 @@ function _render() {
       </div>`}
       <div class="field-group">
         <label class="field-label">Capocannoniere della fase a gironi</label>
-        ${selectGiocatori('bonus-capocannoniere', _pron.bonus.capocannoniere, _risultati.squadre, ['D', 'M', 'F'], bonusChiusi)}
-        <p class="field-hint">Rose aggiornate al 5 settembre 2026 (fonte ESPN), raggruppate per squadra. D = difensore, M = centrocampista, F = attaccante.</p>
+        ${pickerGiocatore('bonus-capocannoniere', _pron.bonus.capocannoniere, _risultati.squadre, ['D', 'M', 'F'], bonusChiusi)}
+        <p class="field-hint">Scrivi il nome del giocatore o della squadra e scegli dalla lista. Rose aggiornate al 5 settembre 2026 (fonte ESPN). D = difensore, M = centrocampista, F = attaccante.</p>
       </div>
       <div class="field-group">
         <label class="field-label">Miglior assistman della fase a gironi</label>
-        ${selectGiocatori('bonus-assistman', _pron.bonus.assistman, _risultati.squadre, ['D', 'M', 'F'], bonusChiusi)}
+        ${pickerGiocatore('bonus-assistman', _pron.bonus.assistman, _risultati.squadre, ['D', 'M', 'F'], bonusChiusi)}
       </div>
       <div class="field-group">
         <label class="field-label">Squadra con più cartellini (gialli + rossi)</label>
@@ -165,6 +165,7 @@ function _render() {
   _renderGiornataSelector(giornate);
   _renderPartite(giornate);
   _renderClassificaPrevista();
+  bindPickerGiocatori(page, _risultati.squadre);
 
   document.getElementById('btn-salva-segni').addEventListener('click', () => _salva(['segni', 'risultatiEsatti']));
   document.getElementById('btn-salva-bonus').addEventListener('click', () => _salva(['bonus']));
