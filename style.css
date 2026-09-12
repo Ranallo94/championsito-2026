@@ -530,10 +530,48 @@ code { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; font-
 .card-giallo { background: #ffcc00; }
 .card-rosso { background: var(--rosso); color: #fff; }
 
+/* ── SELETTORE GIOCATORE CON RICERCA (giocatori.js) ──── */
+.gp { position: relative; }
+.gp-box { position: relative; display: flex; align-items: center; }
+.gp-input {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  padding: 12px 34px 12px 12px; font-size: 14px; font-family: var(--font);
+}
+.gp-input::placeholder { color: var(--text-faint); }
+.gp-input:focus { outline: none; border-color: var(--blu); }
+.gp-input:disabled { opacity: 0.6; cursor: not-allowed; }
+.gp-clear {
+  position: absolute; right: 6px; background: none; border: none;
+  color: var(--text-faint); font-size: 14px; cursor: pointer;
+  padding: 4px 6px; line-height: 1; border-radius: 4px;
+}
+.gp-clear:hover { color: var(--text); background: var(--surface); }
+.gp-dropdown {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 40;
+  max-height: 280px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--blu);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
+}
+.gp-item {
+  display: grid; grid-template-columns: 1fr auto 20px; align-items: center; gap: 8px;
+  padding: 9px 12px; font-size: 13px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.gp-item:last-child { border-bottom: none; }
+.gp-item--attivo { background: rgba(2, 50, 255, 0.22); }
+.gp-item-nome { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-item-sq { color: var(--text-faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 42%; }
+.gp-item-ruolo {
+  text-align: center; font-size: 10px; font-weight: 800; color: var(--text-dim);
+  background: var(--surface-2); border-radius: 4px; padding: 2px 0;
+}
+.gp-vuoto { padding: 10px 12px; font-size: 12px; color: var(--text-faint); }
+
 /* ── ADMIN › STATISTICHE BONUS ───────────────────────── */
 .stat-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .stat-row { display: grid; grid-template-columns: 24px 1fr 64px auto; align-items: center; gap: 6px; }
-.stat-row .field-input { margin: 0; }
+.stat-row .gp-input { padding-top: 10px; padding-bottom: 10px; }
 .stat-row-pos {
   text-align: center; font-size: 11px; font-weight: 800; color: var(--text-faint);
 }
