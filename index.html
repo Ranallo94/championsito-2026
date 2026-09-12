@@ -146,6 +146,10 @@
         <span class="nav-icon">📋</span>
         <span class="nav-label">Pronostici</span>
       </button>
+      <button class="nav-item" data-page="risultati">
+        <span class="nav-icon">⚽</span>
+        <span class="nav-label">Risultati</span>
+      </button>
       <button class="nav-item" data-page="profilo">
         <span class="nav-icon">🙋</span>
         <span class="nav-label">Profilo</span>
@@ -181,6 +185,11 @@
       <!-- ── PAGINA: PRONOSTICI ── -->
       <div id="page-pronostici" class="page">
         <!-- Contenuto generato da pronostici.js -->
+      </div>
+
+      <!-- ── PAGINA: RISULTATI ── -->
+      <div id="page-risultati" class="page">
+        <!-- Contenuto generato da risultati.js -->
       </div>
 
       <!-- ── PAGINA: PROFILO (scheda partecipante, aperta dalla classifica) ── -->
@@ -233,6 +242,14 @@
             </tbody>
           </table>
           <p class="field-hint">Valori calibrati con simulazione Monte Carlo su una popolazione di 20 pronosticatori, con l'obiettivo di tenere la gara aperta fino all'ultima giornata: circa due terzi dei punti si guadagnano giornata per giornata, e chi guida prima dell'ultima giornata vince solo poco più di una volta su due. Vedi <code>simulazione/sim_championsito_v2.py</code>.</p>
+        </div>
+
+        <div class="reg-section">
+          <h3 class="reg-section-title">⚽ Il tab Risultati</h3>
+          <div class="info-banner info-banner--blue">
+            <span>📊</span>
+            <span>Nel tab <strong>Risultati</strong> trovi gli esiti reali partita per partita, la classifica delle 36 squadre e le classifiche di marcatori, assistman e cartellini. Queste ultime sono <strong>informative</strong>: servono a seguire l'andamento dei bonus che hai pronosticato, ma i punti dei bonus si assegnano solo in base al vincitore ufficiale scelto dall'organizzatore a fase conclusa.</span>
+          </div>
         </div>
 
         <div class="reg-section">
